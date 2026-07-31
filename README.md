@@ -20,8 +20,10 @@
 ~/.claude/skills/miloco-tts → ~/Projects/garry-skills/miloco-tts
 ~/.claude/skills/mmx-cli    → ~/Projects/garry-skills/mmx-cli
 
-# Hermes
+# Hermes（按 skill frontmatter name 分类）
+~/.hermes/skills/productivity/dev-tasks → ~/Projects/garry-skills/dev-tasks
 ~/.hermes/skills/smart-home/miloco-tts → ~/Projects/garry-skills/miloco-tts
+~/.hermes/skills/mmx-cli              → ~/Projects/garry-skills/mmx-cli
 
 # 其他（mmx-cli 工具）
 ~/.agents/skills/mmx-cli → ~/Projects/garry-skills/mmx-cli
@@ -37,11 +39,16 @@ mkdir -p ~/Projects/garry-skills/<skill-name>
 # 2. 写 SKILL.md + 脚本/资源
 # 3. 创建 symlink
 ln -sfv ~/Projects/garry-skills/<skill-name> ~/.claude/skills/<skill-name>
+
+# Hermes：按 skill 类型选分类（productivity/ smart-home/ ...），
+# 或放顶层（如果跟 mmx-cli 类似无分类）
 ln -sfv ~/Projects/garry-skills/<skill-name> ~/.hermes/skills/<category>/<skill-name>
+
 # 4. 提交 git
 cd ~/Projects/garry-skills
 git add <skill-name>/
 git commit -m "Add <skill-name> skill"
+git push
 ```
 
 ## 与 Hermes 自带 skills 的区别
