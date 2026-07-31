@@ -1,0 +1,30 @@
+# 临时文件
+*.tmp
+*.bak
+*.swp
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# 测试产物
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 环境变量
+.env
+.env.local
+
+# 临时日志
+*.log
+!mmx-cli/**/*.log
+
+# 用户特定配置（不要提交）
+*.local

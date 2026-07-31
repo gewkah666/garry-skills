@@ -1,13 +1,15 @@
 ---
 name: dev-tasks
-description: >-
+description: >
   Run the user's daily development-task workflow on their Notion "Tasks" database
   (default project: Peppy) via the Notion MCP server. Use to: plan the day (create
   today's tasks each morning); start a task (stamp start time, Status→In Progress);
   log progress into the task's Notion page; finish a task (stamp end time + duration,
   Status→Done); detect when work drifts off the task and offer to create a new one;
   and track several tasks running at once. Triggered by /dev-tasks or any add / list /
-  start / finish / log / "plan my day" / "what am I working on" request.
+  start / finish / log / "plan my day" / "what am I working on" request. Optional
+  TTS voice notifications via the miloco-tts skill (xiaomi speakers / TV) — see the
+  "Voice notifications" section.
 ---
 
 # Dev Tasks (Notion) — daily workflow
@@ -137,6 +139,9 @@ to the minute.)
    in the page `content` under a `## Goal` heading, and add an empty `## Work log` heading.
 4. Create/refresh the local day index with a row per task (Status `Not Started`).
 5. Report back the created tasks as a Markdown list with clickable Notion links.
+6. **(Optional) Voice announcement** — if the user has voice notifications enabled (see
+   "Voice notifications"), call the miloco-tts script to announce the plan, e.g.
+   `python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 今天的任务已规划，共 N 个，第一个是 <task 1 title>"`.
 
 ## Scenario 2 — Start / execute / finish a task (time-tracked)
 
@@ -145,6 +150,8 @@ to the minute.)
 `{ "Status": "In Progress", "date:Completed On:start": "<YYYY-MM-DDTHH:MM:00>", "date:Completed On:is_datetime": 1 }`
 (`Completed On` as a start point) → append to the page `## Work log` `- **Start** <YYYY-MM-DD HH:MM>`
 (`insert_content`, `position: end`) → set the day-index row Status `In Progress` and Start time.
+→ **(Optional) Voice announcement** — if enabled, call
+`python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 开始任务 <task title>"`.
 
 **During:** append progress notes to the task's `## Work log` as bullets (what was done,
 decisions, blockers, links). Each entry should make it obvious which task it belongs to when
@@ -157,7 +164,9 @@ log → set `Completed On` as a **range [start, end]** →
 `update_properties`
 `{ "Status": "Done", "date:Completed On:start": "<startISO>", "date:Completed On:end": "<endISO>", "date:Completed On:is_datetime": 1 }`
 (for a **research/investigation** task, place the block **later**, default ~18:00) → update the
-day-index row (End, Dur, Status Done). Confirm to the user with the link.
+day-index row (End, Dur, Status Done) → **(Optional) Voice announcement** — if enabled, call
+`python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 完成，用时 <Xh Ym>"`
+(or "研究完成" for a research/investigation task) → Confirm to the user with the link.
 
 ## Scenario 3 — Drift detection
 
@@ -168,6 +177,9 @@ the stated goal), **pause and ask**, concretely:
 
 > "This looks outside **'<active task>'** (goal: <goal>). Want me to open a new task for
 > *<the new thing>* — and should I pause/keep the current one running?"
+
+→ **(Optional) Voice announcement** — if enabled, call
+`python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <active task> 似乎跑偏了，目标是 <goal>，需要开新任务吗"`.
 
 - If yes → create the new task (Scenario 1 mechanics; `Status` `Not Started` or, if starting
   it now, run Start), and optionally note the digression in the current task's Work log.
@@ -253,3 +265,58 @@ mutating. (Local day index is usually faster — check it first.)
 ## Another project
 Default is Peppy. To file under a different project, find its page URL in the Projects data
 source (`collection://8aa616ff-95e7-8268-b269-0789ff95e092`) and use that as `Project`.
+
+---
+
+## Voice notifications (optional — miloco-tts skill)
+
+If the **miloco-tts** skill is installed and the user has Xiaomi speakers / TV linked via
+miloco, the agent can announce dev-tasks events out loud. Each scenario marks where the
+announcement fits; the decision to actually speak defaults to **opt-in per user** — only
+announce when the user has said "voice on", "with voice", "播报" (or similar), or set a
+preference like "always announce starts/finishes". When in doubt, **ask once at the start
+of the day** whether voice is on for the session, then remember the answer for the day.
+
+### How to call
+
+The miloco-tts script is the same one the miloco-tts skill uses; locate it via the skill
+discovery path (e.g. `~/.hermes/skills/smart-home/miloco-tts/scripts/miloco_tts.py` or
+`~/.claude/skills/miloco-tts/scripts/miloco_tts.py` — both symlink to the same source).
+Invoke with bash:
+
+```bash
+python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "<natural-language command>"
+```
+
+The script auto-detects the target device (书房 总管 mini / 卧室 总管 Play / 客厅 电视
+etc.) from keywords like "对书房说" / "对卧室说" / "电视播报", strips the device + action
+words, and plays the remaining text via the miloco CLI. See miloco-tts SKILL.md for the full
+keyword/alias table.
+
+### Default phrases (Chinese — adapt if user prefers English)
+
+| Event | Phrase to speak |
+|---|---|
+| Plan my day done | "对书房说 今天的任务已规划，共 N 个，第一个是 <task 1 title>" |
+| Start task | "对书房说 开始任务 <task title>" |
+| Finish task | "对书房说 任务 <task title> 完成，用时 <Xh Ym>" |
+| Finish research | "对书房说 研究任务 <task title> 完成，耗时 <Xh Ym>" |
+| Drift detection | "对书房说 任务 <active task> 似乎跑偏了，目标是 <goal>，需要开新任务吗" |
+
+The "书房" target can be substituted with "卧室" or "客厅" (or "总管 mini" / "总管 play"
+/ "电视") per the user's standing preference.
+
+### When NOT to voice
+
+- During a **silent / focus** block the user has set — skip the announcement and just
+  write the Notion update.
+- When the user explicitly says "no voice" / "别播" / "silent" — turn off voice for the
+  rest of the session.
+- When the TTS script fails (miloco not reachable, device offline) — log a one-line
+  warning in the work log and continue silently; never block the dev-tasks flow on TTS.
+
+### Failures must never break the workflow
+
+Voice is a nice-to-have. Wrap the TTS invocation so that any failure (network, device
+busy, script not found) is logged to the work log as `- ⚠ voice skipped: <reason>` and
+the underlying Notion update still completes. Voice is never in the critical path.
