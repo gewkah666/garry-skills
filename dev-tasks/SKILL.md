@@ -320,3 +320,98 @@ The "书房" target can be substituted with "卧室" or "客厅" (or "总管 min
 Voice is a nice-to-have. Wrap the TTS invocation so that any failure (network, device
 busy, script not found) is logged to the work log as `- ⚠ voice skipped: <reason>` and
 the underlying Notion update still completes. Voice is never in the critical path.
+
+---
+
+## Strong reminders (must-do enforcement)
+
+When the user says a task is **strong / mandatory / 强提醒 / 必须要做**, escalation goes
+beyond the standard optional TTS: a long-running daemon keeps nagging via miloco-tts
+(TTS to 书房 mini) and Feishu until the user confirms completion, so a forgotten task
+never slips past.
+
+### Tooling
+
+A dedicated helper lives at `<skill-dir>/scripts/enforce.py`:
+
+```bash
+# Add a strong reminder
+python3 enforce.py add "吃药" --reason "饭后 30 分钟" --interval 5
+
+# Add with a hard cap (stop nagging after N reminders)
+python3 enforce.py add "查报告" --reason "上线前必看" --interval 10 --max-remind 5
+
+# List all currently active strong reminders
+python3 enforce.py list
+
+# User confirms completion → stop nagging
+python3 enforce.py done "吃药"
+# (cancel is an alias for done)
+
+# Manual one-shot check (used by the per-minute cron)
+python3 enforce.py check
+
+# Foreground loop (don't use with cron)
+python3 enforce.py watch --interval 30
+```
+
+State lives at `~/.hermes/dev-tasks/enforce_state.json` and survives restarts. Each entry
+tracks created_at, last_remind_at, remind_count, interval_min, optional max_remind, and
+status (`pending` / `done` / `timeout` / `cancelled`).
+
+### Escalation behaviour
+
+When `enforce.py check` runs (e.g. every minute via cron), each pending task:
+
+- If `last_remind_at` is unset → fire immediately.
+- If `(now − last_remind_at) ≥ interval_min` and `remind_count < max_remind` → fire again.
+- If `max_remind > 0` and `remind_count ≥ max_remind` → mark `timeout` and notify once.
+
+Each fire:
+
+- TTS via miloco-tts to 书房 mini: `"强提醒：<task>，请立即完成"`.
+- Feishu message: a `⚠️ 强提醒 [<task>]` block with reason, remind count, and the
+  next interval. User replies with `完成 <task>` to silence.
+
+### Wiring it to cron
+
+Add a no-agent cron that runs the wrapper script. Example for a weekly
+Tuesday-11:00 "打扫" reminder:
+
+```bash
+# Wrapper script at ~/.hermes/scripts/weekly_cleaning.sh
+#!/bin/bash
+python3 ~/.hermes/scripts/enforce.py add 打扫 \
+  --reason '每周二固定清洁日' \
+  --interval 30 \
+  --max-remind 8
+
+# Then
+hermes cron create --name weekly-cleaning-enforce \
+  --script "weekly_cleaning.sh" \
+  --no-agent \
+  --deliver local \
+  "0 11 * * 2"
+```
+
+(Important: use `--script` and put the script under `~/.hermes/scripts/` with the full
+argument list in the wrapper. Putting the args directly on `--script "enforce.py add ..."`
+does not work — Hermes treats the whole string as the script path.)
+
+The per-minute watcher cron (`* * * * * enforce.py check`) is what actually does the
+nagging. The weekly cron only **adds** the strong reminder on schedule.
+
+### When to use
+
+- Medications ("吃药 / 滴眼药 / 测血糖") — set a short interval (5–15 min) and a low
+  `max_remind` so the user is held accountable without spamming for hours.
+- Mandatory home chores ("倒垃圾 / 关门窗 / 喂宠物") — set a longer interval (30–60 min)
+  and a larger `max_remind`.
+- Critical work checkpoints ("发版前查报告 / 提交代码 review") — short interval,
+  no max — keep firing until the user explicitly confirms.
+
+Voice stays a nice-to-have; on every failure the daemon should fall back to Feishu
+(where reliability matters more than sound) and keep retrying. The workflow is
+**additive**: strong reminders coexist with normal dev-tasks voice announcements.
+
+---
