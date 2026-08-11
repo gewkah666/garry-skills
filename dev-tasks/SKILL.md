@@ -7,9 +7,10 @@ description: >
   log progress into the task's Notion page; finish a task (stamp end time + duration,
   Status→Done); detect when work drifts off the task and offer to create a new one;
   and track several tasks running at once. Triggered by /dev-tasks or any add / list /
-  start / finish / log / "plan my day" / "what am I working on" request. Optional
-  TTS voice notifications via the miloco-tts skill (xiaomi speakers / TV) — see the
-  "Voice notifications" section.
+  start / finish / log / "plan my day" / "what am I working on" request. Every task
+  status change — plus mid-task problems/blockers, phase completions and key findings/discoveries — is announced
+  by TTS on the study speaker via the miloco-tts skill (default on) — see the "Voice
+  notifications" section.
 ---
 
 # Dev Tasks (Notion) — daily workflow
@@ -79,17 +80,18 @@ By task state:
 - **In progress** (started): `Completed On` = **start datetime**, a point to the minute
   (`is_datetime = 1`) = the **current system clock** (read it — never invent) **or a time the
   user specifies**.
-- **Done** (finished): `Completed On` = a **range [start, end]** — both datetimes to the
-  minute, `end` **estimated from the workload** with **`end − start` ≥ 30 min** (minimum
-  block, so tasks don't blur on the calendar); use real elapsed time if longer. State the
-  chosen block/duration in one line so the user can override.
-    - **Research / investigation task** → place the block **later** (default around **18:00**,
-      or ask) so the calendar doesn't read as "just finished". See memory
-      `dev-tasks-research-completion-time`.
+- **Done** (finished): `Completed On` = a **range [start, end]** at the **actual times** —
+  `start` = the real start, `end` = the real finish read from the **current system clock**
+  (never invent, never estimate from workload). If real elapsed < 30 min, extend the
+  calendar-facing `end` to `start + 30 min` (display floor so tasks don't blur on the
+  calendar), but the Work-log `Duration` line always records the **real** elapsed minutes.
+  **Never** move the block to a different time of day — it sits where the work actually
+  happened (user correction 2026-08-10; the old "estimate end from workload" and "nudge
+  research tasks to ~18:00" rules are retired).
 
-Also mirror the block in the page `## Work log` (`- **Start** …`, `- **End** … — summary`,
-`- **Duration** …`) and the day index — honest prose that stays put even if a research task's
-calendar-facing `Completed On` is nudged later. Read the clock with PowerShell
+Also mirror the times in the page `## Work log` (`- **Start** …`, `- **End** … — summary`,
+`- **Duration** …` = real elapsed, minutes-honest) and the day index. The **only** allowed
+divergence from reality is the 30-min calendar display floor above. Read the clock with PowerShell
 `Get-Date -Format 'yyyy-MM-dd HH:mm'` or Bash `date '+%Y-%m-%d %H:%M'` (local timezone).
 Concurrent tasks' blocks may overlap — that's fine.
 
@@ -139,9 +141,9 @@ to the minute.)
    in the page `content` under a `## Goal` heading, and add an empty `## Work log` heading.
 4. Create/refresh the local day index with a row per task (Status `Not Started`).
 5. Report back the created tasks as a Markdown list with clickable Notion links.
-6. **(Optional) Voice announcement** — if the user has voice notifications enabled (see
-   "Voice notifications"), call the miloco-tts script to announce the plan, e.g.
-   `python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 今天的任务已规划，共 N 个，第一个是 <task 1 title>"`.
+6. **Voice announcement** (default on — see "Voice notifications"): call the miloco-tts
+   script to announce the plan, e.g.
+   `python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 今天的任务已规划，共 N 个，第一个是 <task 1 title>"`.
 
 ## Scenario 2 — Start / execute / finish a task (time-tracked)
 
@@ -150,23 +152,46 @@ to the minute.)
 `{ "Status": "In Progress", "date:Completed On:start": "<YYYY-MM-DDTHH:MM:00>", "date:Completed On:is_datetime": 1 }`
 (`Completed On` as a start point) → append to the page `## Work log` `- **Start** <YYYY-MM-DD HH:MM>`
 (`insert_content`, `position: end`) → set the day-index row Status `In Progress` and Start time.
-→ **(Optional) Voice announcement** — if enabled, call
-`python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 开始任务 <task title>"`.
+→ **Voice announcement** (default on):
+`python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 开始任务 <task title>"`.
 
 **During:** append progress notes to the task's `## Work log` as bullets (what was done,
 decisions, blockers, links). Each entry should make it obvious which task it belongs to when
 several are open. Keep the system of record in Notion; keep the day index in sync for status.
+Three kinds of mid-task events also get a **voice announcement** (default on), right after the
+Work-log line is written:
 
-**Finish:** derive the end per **Time rules** (end = start + workload effort, ≥30 min; read the
-`Completed On` start / Work-log Start back via `notion-fetch` if not in context) → append
+- **Problem / blocker hit** — an error that stops progress, a missing credential/permission,
+  a failing build, an unexpected dead end:
+  `python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 遇到问题：<一句话问题>"`
+- **Phase completion** — a distinct sub-deliverable done while the task keeps running
+  (e.g. 调研完成开始写方案 / 后端通了开始联调):
+  `python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 阶段性完成：<一句话成果>"`
+- **Key finding / discovery** — evidence that changes the picture: a root cause pinned down,
+  data that overturns an assumption, an unexpected decisive measurement (e.g. 根因锁定 /
+  实测推翻假设 / 关键实证出炉). Announce it the moment it lands, not at task end:
+  `python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 关键发现：<一句话发现>"`
+
+Announce genuine events, not every log line — a problem worth interrupting the user for, a
+phase worth a checkpoint, a finding that changes what happens next. Routine progress bullets
+stay silent.
+
+**Finish:** end = the **current system clock** (read it; see Time rules — `Duration` is real
+elapsed, the calendar range gets the 30-min display floor; read the `Completed On` start /
+Work-log Start back via `notion-fetch` if not in context) → append
 `- **End** <ts> — <1–3 line summary of what was done>` and `- **Duration** <Xh Ym>` to the Work
 log → set `Completed On` as a **range [start, end]** →
 `update_properties`
 `{ "Status": "Done", "date:Completed On:start": "<startISO>", "date:Completed On:end": "<endISO>", "date:Completed On:is_datetime": 1 }`
-(for a **research/investigation** task, place the block **later**, default ~18:00) → update the
-day-index row (End, Dur, Status Done) → **(Optional) Voice announcement** — if enabled, call
-`python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 完成，用时 <Xh Ym>"`
+(the block stays at the actual working time — no repositioning for any task type) → update the
+day-index row (End, Dur, Status Done) → **Voice announcement** (default on):
+`python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 完成，用时 <Xh Ym>"`
 (or "研究完成" for a research/investigation task) → Confirm to the user with the link.
+
+**Any other status change** (→ Blocked / Testing / Review / back to Not Started / …):
+update Notion + the day index as usual, then announce it too —
+`python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 状态变为 <中文状态>"`
+(e.g. 已阻塞 / 测试中 / 待评审). Every status transition gets a voice reminder.
 
 ## Scenario 3 — Drift detection
 
@@ -178,8 +203,8 @@ the stated goal), **pause and ask**, concretely:
 > "This looks outside **'<active task>'** (goal: <goal>). Want me to open a new task for
 > *<the new thing>* — and should I pause/keep the current one running?"
 
-→ **(Optional) Voice announcement** — if enabled, call
-`python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <active task> 似乎跑偏了，目标是 <goal>，需要开新任务吗"`.
+→ **Voice announcement** (default on):
+`python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <active task> 似乎跑偏了，目标是 <goal>，需要开新任务吗"`.
 
 - If yes → create the new task (Scenario 1 mechanics; `Status` `Not Started` or, if starting
   it now, run Start), and optionally note the digression in the current task's Work log.
@@ -268,30 +293,27 @@ source (`collection://8aa616ff-95e7-8268-b269-0789ff95e092`) and use that as `Pr
 
 ---
 
-## Voice notifications (optional — miloco-tts skill)
+## Voice notifications (miloco-tts skill) — ON by default: every status change, problem, phase completion, key finding
 
-If the **miloco-tts** skill is installed and the user has Xiaomi speakers / TV linked via
-miloco, the agent can announce dev-tasks events out loud. Each scenario marks where the
-announcement fits; the decision to actually speak defaults to **opt-in per user** — only
-announce when the user has said "voice on", "with voice", "播报" (or similar), or set a
-preference like "always announce starts/finishes". When in doubt, **ask once at the start
-of the day** whether voice is on for the session, then remember the answer for the day.
+**Every task status change is announced out loud** on the study speaker: plan created,
+start (→ In Progress), finish (→ Done), and any other transition (→ Blocked / Testing /
+Review / …) — plus three mid-task events: **a problem/blocker hit**, **a phase completion**
+and **a key finding/discovery** (see Scenario 2 "During"). This is the **default behavior — announce without asking**. Suppress only
+per "When NOT to voice" below (focus block, explicit "no voice"/"别播", or TTS failure).
 
 ### How to call
 
-The miloco-tts script is the same one the miloco-tts skill uses; locate it via the skill
-discovery path (e.g. `~/.hermes/skills/smart-home/miloco-tts/scripts/miloco_tts.py` or
-`~/.claude/skills/miloco-tts/scripts/miloco_tts.py` — both symlink to the same source).
-Invoke with bash:
+The script lives in the miloco-tts skill — `~/.claude/skills/miloco-tts/scripts/miloco_tts.py`
+(a link to the garry-skills repo; same file everywhere).
 
 ```bash
-python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "<natural-language command>"
+# Windows: python / macOS: python3
+python <skills-dir>/miloco-tts/scripts/miloco_tts.py "<natural-language command>"
 ```
 
-The script auto-detects the target device (书房 总管 mini / 卧室 总管 Play / 客厅 电视
-etc.) from keywords like "对书房说" / "对卧室说" / "电视播报", strips the device + action
-words, and plays the remaining text via the miloco CLI. See miloco-tts SKILL.md for the full
-keyword/alias table.
+Backend is **Home Assistant** (needs the `HASS_TOKEN` env var — see miloco-tts SKILL.md).
+The script auto-detects the target device from keywords like "对书房说", strips the
+device + action words, and plays the text via the HA notify play-text entity.
 
 ### Default phrases (Chinese — adapt if user prefers English)
 
@@ -301,10 +323,15 @@ keyword/alias table.
 | Start task | "对书房说 开始任务 <task title>" |
 | Finish task | "对书房说 任务 <task title> 完成，用时 <Xh Ym>" |
 | Finish research | "对书房说 研究任务 <task title> 完成，耗时 <Xh Ym>" |
+| Problem / blocker hit | "对书房说 任务 <task title> 遇到问题：<一句话问题>" |
+| Phase completion | "对书房说 任务 <task title> 阶段性完成：<一句话成果>" |
+| Key finding / discovery | "对书房说 任务 <task title> 关键发现：<一句话发现>" |
+| Other status change | "对书房说 任务 <task title> 状态变为 <中文状态>"（已阻塞/测试中/待评审/…） |
 | Drift detection | "对书房说 任务 <active task> 似乎跑偏了，目标是 <goal>，需要开新任务吗" |
 
-The "书房" target can be substituted with "卧室" or "客厅" (or "总管 mini" / "总管 play"
-/ "电视") per the user's standing preference.
+**Fixed target: 书房 (总管 mini) only.** All dev-tasks announcements go to the study
+speaker — always phrase as "对书房说 …". Never target 卧室 / 客厅 / 电视 for dev-tasks
+voice, even if other devices are available, unless the user explicitly changes this rule.
 
 ### When NOT to voice
 
@@ -312,8 +339,9 @@ The "书房" target can be substituted with "卧室" or "客厅" (or "总管 min
   write the Notion update.
 - When the user explicitly says "no voice" / "别播" / "silent" — turn off voice for the
   rest of the session.
-- When the TTS script fails (miloco not reachable, device offline) — log a one-line
-  warning in the work log and continue silently; never block the dev-tasks flow on TTS.
+- When the TTS script fails (HA not reachable, `HASS_TOKEN` missing, device offline) —
+  log a one-line warning in the work log and continue silently; never block the
+  dev-tasks flow on TTS.
 
 ### Failures must never break the workflow
 
