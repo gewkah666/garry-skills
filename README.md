@@ -9,21 +9,27 @@
 | `dev-tasks` | Notion 任务管理（早晨规划 / 开始 / 完成 / 漂移检测） | `dev-tasks/SKILL.md` |
 | `miloco-tts` | miloco 智能 TTS 路由（让小爱音箱/电视朗读） | `miloco-tts/SKILL.md` |
 | `mmx-cli` | MiniMax `mmx` CLI（文本/图像/视频/语音/音乐生成） | `mmx-cli/SKILL.md` |
+| `ride-notion` | 骑行/运动数据写入 Notion 阅览世界（手动或解析截图） | `ride-notion/SKILL.md` |
+| `water-reminder` | 智能喝水提醒（miloco TTS + 飞书确认 + 升级 + Notion 跳过会议） | `water-reminder/SKILL.md` |
 
 ## 安装方式
 
 所有 skills 通过 symlink 共享：
 
 ```bash
-# Claude Code
-~/.claude/skills/dev-tasks   → ~/Projects/garry-skills/dev-tasks
-~/.claude/skills/miloco-tts → ~/Projects/garry-skills/miloco-tts
-~/.claude/skills/mmx-cli    → ~/Projects/garry-skills/mmx-cli
+# Claude Code（全部）
+~/.claude/skills/dev-tasks       → ~/Projects/garry-skills/dev-tasks
+~/.claude/skills/miloco-tts      → ~/Projects/garry-skills/miloco-tts
+~/.claude/skills/mmx-cli         → ~/Projects/garry-skills/mmx-cli
+~/.claude/skills/ride-notion     → ~/Projects/garry-skills/ride-notion
+~/.claude/skills/water-reminder  → ~/Projects/garry-skills/water-reminder
 
-# Hermes（按 skill frontmatter name 分类）
-~/.hermes/skills/productivity/dev-tasks → ~/Projects/garry-skills/dev-tasks
-~/.hermes/skills/smart-home/miloco-tts → ~/Projects/garry-skills/miloco-tts
-~/.hermes/skills/mmx-cli              → ~/Projects/garry-skills/mmx-cli
+# Hermes（按 frontmatter tags 分类）
+~/.hermes/skills/productivity/dev-tasks  → ~/Projects/garry-skills/dev-tasks
+~/.hermes/skills/productivity/ride-notion → ~/Projects/garry-skills/ride-notion
+~/.hermes/skills/smart-home/miloco-tts    → ~/Projects/garry-skills/miloco-tts
+~/.hermes/skills/smart-home/water-reminder → ~/Projects/garry-skills/water-reminder
+~/.hermes/skills/mmx-cli                  → ~/Projects/garry-skills/mmx-cli
 
 # 其他（mmx-cli 工具）
 ~/.agents/skills/mmx-cli → ~/Projects/garry-skills/mmx-cli
@@ -44,7 +50,8 @@ ln -sfv ~/Projects/garry-skills/<skill-name> ~/.claude/skills/<skill-name>
 # 或放顶层（如果跟 mmx-cli 类似无分类）
 ln -sfv ~/Projects/garry-skills/<skill-name> ~/.hermes/skills/<category>/<skill-name>
 
-# 4. 提交 git
+# 4. 更新本 README 的"当前 skills"表格 + 安装方式块
+# 5. 提交 git
 cd ~/Projects/garry-skills
 git add <skill-name>/
 git commit -m "Add <skill-name> skill"
