@@ -6,6 +6,7 @@
 
 | Skill | 说明 | 路径 |
 |-------|------|------|
+| `dashboards` | 通用数据可视化（Notion 数据源 + Plotly + Hermes plugin 托管） | `dashboards/SKILL.md` |
 | `dev-tasks` | Notion 任务管理（早晨规划 / 开始 / 完成 / 漂移检测） | `dev-tasks/SKILL.md` |
 | `miloco-tts` | miloco 智能 TTS 路由（让小爱音箱/电视朗读） | `miloco-tts/SKILL.md` |
 | `mmx-cli` | MiniMax `mmx` CLI（文本/图像/视频/语音/音乐生成） | `mmx-cli/SKILL.md` |
