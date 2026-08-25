@@ -3,9 +3,11 @@ name: dev-tasks
 description: >
   Run the user's daily development-task workflow on their Notion "Tasks" database
   (default project: Peppy) via the Notion MCP server. Use to: plan the day (create
-  today's tasks each morning); start a task (stamp start time, Status→In Progress);
-  log progress into the task's Notion page; finish a task (stamp end time + duration,
-  Status→Done); detect when work drifts off the task and offer to create a new one;
+  today's tasks each morning); start a task (create a project-local Git worktree,
+  stamp start time, Status→In Progress);
+  log progress into the task's Notion page; finish work on a task (stamp end time +
+  duration, commit + push, Status→Review); after acceptance create a PR and merge it
+  automatically into main; detect when work drifts off the task and offer to create a new one;
   and track several tasks running at once. Triggered by /dev-tasks or any add / list /
   start / finish / log / "plan my day" / "what am I working on" request. Every task
   status change — plus mid-task problems/blockers, phase completions and key findings/discoveries — is announced
@@ -22,7 +24,10 @@ MCP server (tools `mcp__plugin_Notion_notion__notion-*`, deferred — load with 
 This skill is a **workflow**, not just CRUD. The four scenarios it serves:
 1. **Morning planning** — turn the user's spoken plan into real Notion tasks for today.
 2. **Time-tracked execution** — stamp a start time when a task begins and an end time when
-   it finishes, and record what happened into that task's Notion page.
+   the work completes, isolate code work in a project-local `.tree` worktree, record what
+   happened into that task's Notion page, and hold the task in **Review** (验收) until the
+   user accepts. Acceptance authorizes PR creation and automatic merge into `main`; only a
+   successful merge green-lights Done.
 3. **Drift detection** — while a task is running, notice when the work stops matching the
    task's goal and ask the user whether to create a new task for the new thread.
 4. **Concurrency** — several tasks may be In Progress at the same time; always know which
@@ -46,7 +51,9 @@ values are **JSON-encoded strings** (e.g. `"[\"…\"]"`).
 
 - `Task name` — **title** (string). Required on create.
 - `Status` — `Backlog`, `Not Started`, `Planning`, `Approved`, `In Progress`, `Testing`,
-  `Review`, `Blocked`, `Rejected`, `Done`, `Archived`.
+  `Review`, `Blocked`, `Rejected`, `Done`, `Archived`. `Review` is the **acceptance stage**
+  (验收中): work Claude believes is complete and verified, awaiting the user's verdict —
+  see Scenario 2.
 - `Priority` — use `Low` / `Medium` / `High` (ignore the legacy `中`/`高` dupes).
 - `Completed On` — **the only time field that matters** (the user's Notion calendar sorts by
   it). It can be a **point** or a **range**: `date:Completed On:start`, `date:Completed On:end`
@@ -80,14 +87,18 @@ By task state:
 - **In progress** (started): `Completed On` = **start datetime**, a point to the minute
   (`is_datetime = 1`) = the **current system clock** (read it — never invent) **or a time the
   user specifies**.
-- **Done** (finished): `Completed On` = a **range [start, end]** at the **actual times** —
-  `start` = the real start, `end` = the real finish read from the **current system clock**
-  (never invent, never estimate from workload). If real elapsed < 30 min, extend the
-  calendar-facing `end` to `start + 30 min` (display floor so tasks don't blur on the
-  calendar), but the Work-log `Duration` line always records the **real** elapsed minutes.
-  **Never** move the block to a different time of day — it sits where the work actually
-  happened (user correction 2026-08-10; the old "estimate end from workload" and "nudge
-  research tasks to ~18:00" rules are retired).
+- **Work complete (→ Review)**: `Completed On` = a **range [start, end]** at the **actual
+  times**, stamped when the task enters Review — `start` = the real start, `end` = the real
+  work finish read from the **current system clock** (never invent, never estimate from
+  workload). If real elapsed < 30 min, extend the calendar-facing `end` to `start + 30 min`
+  (display floor so tasks don't blur on the calendar), but the Work-log `Duration` line
+  always records the **real** elapsed minutes. **Never** move the block to a different time
+  of day — it sits where the work actually happened (user correction 2026-08-10; the old
+  "estimate end from workload" and "nudge research tasks to ~18:00" rules are retired).
+- **Done** (accepted and merged, or accepted `no VCS` work): the final status change does
+  not alter `Completed On`; the calendar block marks when the work happened, not when it
+  was accepted or merged. After rework, re-enter Review with `end` extended to the new real
+  finish (and the extra minutes added to `Duration`).
 
 Also mirror the times in the page `## Work log` (`- **Start** …`, `- **End** … — summary`,
 `- **Duration** …` = real elapsed, minutes-honest) and the day index. The **only** allowed
@@ -127,6 +138,63 @@ micro-items, propose merging them into a handful of ~30-min+ tasks before creati
 toward fewer, larger tasks. (This is about task size only — start/end times are still stamped
 to the minute.)
 
+## Git isolation and delivery lifecycle
+
+For **every task that will modify files in a Git repository**, create a dedicated worktree
+**before** setting the task to `In Progress` or editing files. Non-code tasks and work outside
+Git are the only exceptions; log `no VCS / no worktree` in the Work log.
+
+### Worktree at task start
+
+1. Resolve the corresponding repository root and verify the intended integration branch
+   (`main` by default). Use a concise ASCII task slug; branch `task/<slug>`, path
+   `<repo-root>/.tree/<slug>`. Add a short Notion page-id suffix if either name collides.
+2. Keep `.tree/` out of status. Prefer adding `.tree/` to the repository's local
+   `.git/info/exclude`; do not modify the tracked `.gitignore` solely for this workflow.
+3. Fetch `origin/main` when a remote exists. Base the task branch on `origin/main` by
+   default. If the task intentionally depends on unpushed local `main` commits, base it on
+   local `main` and record that decision. Never reset, clean, switch, stash wholesale, or
+   otherwise disturb the user's main worktree; existing dirty files stay there.
+4. Verify the resolved target is exactly inside `<repo-root>/.tree/` and does not already
+   contain another task. Then create the branch/worktree, e.g.:
+   `git -C <repo-root> worktree add -b task/<slug> <repo-root>/.tree/<slug> origin/main`.
+   Reuse an existing worktree only when its branch and Notion task are the same task.
+5. Append `- **Worktree** <absolute path> — branch <branch>; base <base>` to the Work log.
+   Run every task command and edit from that worktree, not the main checkout.
+
+If worktree creation fails, do not silently fall back to the main checkout. Log and announce
+the problem; leave the task not started or mark it `Blocked` when the task had already begun.
+
+### Review gate: commit and push
+
+Before entering `Review`, all task changes must be verified, committed on the task branch,
+and pushed with upstream tracking (`git push -u origin <branch>`). Confirm the task worktree
+is clean and the remote branch tip matches local `HEAD`. Do not force-push unless the user
+explicitly requests it. A missing remote, authentication failure, rejected push, dirty
+worktree, or uncommitted task file is a blocker: log/announce it and remain `In Progress`.
+
+### Acceptance gate: PR, automatic merge, cleanup
+
+User acceptance authorizes the remaining Git delivery actions without another confirmation:
+
+1. Create (or reuse) a PR from the task branch to `main`; include the task summary,
+   verification, and Notion URL. For GitHub, prefer an available authenticated GitHub
+   connector/API, otherwise use `gh pr create --base main --head <branch> --fill`.
+2. Enable automatic merge using the repository's normal merge strategy. For GitHub, use
+   `gh pr merge --auto --delete-branch` plus the repo's configured merge mode; if auto-merge
+   is unavailable and all required checks already pass, merge immediately. Never bypass
+   branch protection or failing checks. If neither an authenticated provider tool/API nor
+   CLI is available, report a blocker; do not treat a compare URL as a created PR.
+3. If checks are pending, set the task to `Testing`, announce it, and monitor until the PR
+   is actually merged. PR creation or an auto-merge request alone is **not** Done.
+4. Only after the remote PR reports merged into `main`, append the PR URL and merge commit to
+   the Work log, then set `Done`. If the PR conflicts, checks fail, or merge is rejected,
+   keep the task open (`In Progress`, `Testing`, or `Blocked` as appropriate), log/announce
+   the problem, and fix it in the same worktree.
+5. After a verified merge, remove the task worktree and local task branch only when clean.
+   Fetch `origin/main`; fast-forward the local main checkout only if it is clean. Otherwise
+   leave the user's main worktree untouched and report that it was not updated.
+
 ## Scenario 1 — Morning planning ("plan my day" / a list of todos)
 
 1. Gather the day's intended tasks from the user (ask briefly if the list is vague). Keep
@@ -145,9 +213,10 @@ to the minute.)
    script to announce the plan, e.g.
    `python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 今天的任务已规划，共 N 个，第一个是 <task 1 title>"`.
 
-## Scenario 2 — Start / execute / finish a task (time-tracked)
+## Scenario 2 — Start / execute / review / accept a task (time-tracked)
 
-**Start:** start time = the current system clock **or** a time the user gives (see Time rules)
+**Start:** for a Git-backed task, first complete **Worktree at task start** above. Then start
+time = the current system clock **or** a time the user gives (see Time rules)
 → `notion-update-page` `update_properties`
 `{ "Status": "In Progress", "date:Completed On:start": "<YYYY-MM-DDTHH:MM:00>", "date:Completed On:is_datetime": 1 }`
 (`Completed On` as a start point) → append to the page `## Work log` `- **Start** <YYYY-MM-DD HH:MM>`
@@ -176,22 +245,49 @@ Announce genuine events, not every log line — a problem worth interrupting the
 phase worth a checkpoint, a finding that changes what happens next. Routine progress bullets
 stay silent.
 
-**Finish:** end = the **current system clock** (read it; see Time rules — `Duration` is real
-elapsed, the calendar range gets the 30-min display floor; read the `Completed On` start /
-Work-log Start back via `notion-fetch` if not in context) → append
-`- **End** <ts> — <1–3 line summary of what was done>` and `- **Duration** <Xh Ym>` to the Work
-log → set `Completed On` as a **range [start, end]** →
-`update_properties`
-`{ "Status": "Done", "date:Completed On:start": "<startISO>", "date:Completed On:end": "<endISO>", "date:Completed On:is_datetime": 1 }`
+**Work complete → Review (验收):** when Claude judges the deliverable complete and verified,
+the task does **not** go to Done — it enters acceptance. **Completion conditions** — all
+must hold before entering Review: ① the deliverable works, verified in the user's runtime
+semantics; ② every task change is committed on the task branch with a task-referencing
+message; ③ the task branch is pushed, its upstream is configured, remote tip equals local
+`HEAD`, and the task worktree is clean. Uncommitted or unpushed work = work not complete.
+For work outside Git, note `no VCS / no worktree` in the Ready-for-review line instead.
+End = the **current system clock**
+(read it; see Time rules — `Duration` is real elapsed, the calendar range gets the 30-min
+display floor; read the `Completed On` start / Work-log Start back via `notion-fetch` if not
+in context) → append
+`- **Ready for review** <ts> — <1–3 line summary of what was done and how it was verified; branch <branch>; commit <short-hash>; pushed <remote> (or no VCS)>`
+and `- **Duration** <Xh Ym>` to the Work log → set `Completed On` as a **range [start, end]**
+→ `update_properties`
+`{ "Status": "Review", "date:Completed On:start": "<startISO>", "date:Completed On:end": "<endISO>", "date:Completed On:is_datetime": 1 }`
 (the block stays at the actual working time — no repositioning for any task type) → update the
-day-index row (End, Dur, Status Done) → **Voice announcement** (default on):
-`python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 完成，用时 <Xh Ym>"`
-(or "研究完成" for a research/investigation task) → Confirm to the user with the link.
+day-index row (End, Dur, Status Review) → **Voice announcement** (default on):
+`python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 开发完成，进入验收，请查看"`
+(research task: "研究完成，进入验收，请查看结论") → tell the user what to check (link, what
+changed, how to try it) and wait for their verdict.
 
-**Any other status change** (→ Blocked / Testing / Review / back to Not Started / …):
+**Acceptance — only an explicit user verdict may initiate delivery toward Done.** Never set
+`Status: "Done"` on Claude's own judgment; "implemented and verified" earns Review, not
+Done. (Exception: when the user logs work they already did and declares it finished, their
+own statement **is** the acceptance; `no VCS` work may go straight to Done.)
+- **Pass** (user says 验收通过 / 通过 / OK / LGTM / done): for a Git-backed task, execute
+  **Acceptance gate: PR, automatic merge, cleanup** above. Only after the PR is actually
+  merged append `- **Accepted and merged** <ts> — PR <url>; merge <hash>` →
+  `update_properties` `{ "Status": "Done" }` (`Completed On` unchanged — the block stays at
+  the work time) → day-index row Status Done → **Voice announcement**:
+  `python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 验收通过，已合并主分支并标记完成，用时 <Xh Ym>"`.
+  For a `no VCS` task, acceptance may move directly to Done as before.
+- **Fail / changes requested**: append `- **Rework** <ts> — <what the user wants changed>`
+  → `update_properties` `{ "Status": "In Progress" }` (keep the existing `Completed On`
+  range for now) → day-index row back to In Progress → **Voice announcement**:
+  `python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 验收未通过，返工：<一句话原因>"`.
+  When the rework is complete, run **Work complete → Review** again with `end` extended to
+  the new real finish (extra minutes added to `Duration`).
+
+**Any other status change** (→ Blocked / Testing / back to Not Started / …):
 update Notion + the day index as usual, then announce it too —
 `python <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 状态变为 <中文状态>"`
-(e.g. 已阻塞 / 测试中 / 待评审). Every status transition gets a voice reminder.
+(e.g. 已阻塞 / 测试中). Every status transition gets a voice reminder.
 
 ## Scenario 3 — Drift detection
 
@@ -296,8 +392,9 @@ source (`collection://8aa616ff-95e7-8268-b269-0789ff95e092`) and use that as `Pr
 ## Voice notifications (miloco-tts skill) — ON by default: every status change, problem, phase completion, key finding
 
 **Every task status change is announced out loud** on the study speaker: plan created,
-start (→ In Progress), finish (→ Done), and any other transition (→ Blocked / Testing /
-Review / …) — plus three mid-task events: **a problem/blocker hit**, **a phase completion**
+start (→ In Progress), work complete (→ Review), acceptance (→ Done) or rework (→ back to
+In Progress), and any other transition (→ Blocked / Testing / …) — plus three mid-task
+events: **a problem/blocker hit**, **a phase completion**
 and **a key finding/discovery** (see Scenario 2 "During"). This is the **default behavior — announce without asking**. Suppress only
 per "When NOT to voice" below (focus block, explicit "no voice"/"别播", or TTS failure).
 
@@ -321,8 +418,9 @@ device + action words, and plays the text via the HA notify play-text entity.
 |---|---|
 | Plan my day done | "对书房说 今天的任务已规划，共 N 个，第一个是 <task 1 title>" |
 | Start task | "对书房说 开始任务 <task title>" |
-| Finish task | "对书房说 任务 <task title> 完成，用时 <Xh Ym>" |
-| Finish research | "对书房说 研究任务 <task title> 完成，耗时 <Xh Ym>" |
+| Work complete → Review | "对书房说 任务 <task title> 开发完成，进入验收，请查看"（研究任务："研究完成，进入验收，请查看结论"） |
+| Accepted + merged → Done | "对书房说 任务 <task title> 验收通过，已合并主分支并标记完成，用时 <Xh Ym>" |
+| Rework (acceptance failed) | "对书房说 任务 <task title> 验收未通过，返工：<一句话原因>" |
 | Problem / blocker hit | "对书房说 任务 <task title> 遇到问题：<一句话问题>" |
 | Phase completion | "对书房说 任务 <task title> 阶段性完成：<一句话成果>" |
 | Key finding / discovery | "对书房说 任务 <task title> 关键发现：<一句话发现>" |
@@ -348,3 +446,98 @@ voice, even if other devices are available, unless the user explicitly changes t
 Voice is a nice-to-have. Wrap the TTS invocation so that any failure (network, device
 busy, script not found) is logged to the work log as `- ⚠ voice skipped: <reason>` and
 the underlying Notion update still completes. Voice is never in the critical path.
+
+---
+
+## Strong reminders (must-do enforcement)
+
+When the user says a task is **strong / mandatory / 强提醒 / 必须要做**, escalation goes
+beyond the standard TTS: a long-running daemon keeps nagging via miloco-tts
+(TTS to 书房 mini) and Feishu until the user confirms completion, so a forgotten task
+never slips past.
+
+### Tooling
+
+A dedicated helper lives at `<skill-dir>/scripts/enforce.py`:
+
+```bash
+# Add a strong reminder
+python3 enforce.py add "吃药" --reason "饭后 30 分钟" --interval 5
+
+# Add with a hard cap (stop nagging after N reminders)
+python3 enforce.py add "查报告" --reason "上线前必看" --interval 10 --max-remind 5
+
+# List all currently active strong reminders
+python3 enforce.py list
+
+# User confirms completion → stop nagging
+python3 enforce.py done "吃药"
+# (cancel is an alias for done)
+
+# Manual one-shot check (used by the per-minute cron)
+python3 enforce.py check
+
+# Foreground loop (don't use with cron)
+python3 enforce.py watch --interval 30
+```
+
+State lives at `~/.hermes/dev-tasks/enforce_state.json` and survives restarts. Each entry
+tracks created_at, last_remind_at, remind_count, interval_min, optional max_remind, and
+status (`pending` / `done` / `timeout` / `cancelled`).
+
+### Escalation behaviour
+
+When `enforce.py check` runs (e.g. every minute via cron), each pending task:
+
+- If `last_remind_at` is unset → fire immediately.
+- If `(now − last_remind_at) ≥ interval_min` and `remind_count < max_remind` → fire again.
+- If `max_remind > 0` and `remind_count ≥ max_remind` → mark `timeout` and notify once.
+
+Each fire:
+
+- TTS via miloco-tts to 书房 mini: `"强提醒：<task>，请立即完成"`.
+- Feishu message: a `⚠️ 强提醒 [<task>]` block with reason, remind count, and the
+  next interval. User replies with `完成 <task>` to silence.
+
+### Wiring it to cron
+
+Add a no-agent cron that runs the wrapper script. Example for a weekly
+Tuesday-11:00 "打扫" reminder:
+
+```bash
+# Wrapper script at ~/.hermes/scripts/weekly_cleaning.sh
+#!/bin/bash
+python3 ~/.hermes/scripts/enforce.py add 打扫 \
+  --reason '每周二固定清洁日' \
+  --interval 30 \
+  --max-remind 8
+
+# Then
+hermes cron create --name weekly-cleaning-enforce \
+  --script "weekly_cleaning.sh" \
+  --no-agent \
+  --deliver local \
+  "0 11 * * 2"
+```
+
+(Important: use `--script` and put the script under `~/.hermes/scripts/` with the full
+argument list in the wrapper. Putting the args directly on `--script "enforce.py add ..."`
+does not work — Hermes treats the whole string as the script path.)
+
+The per-minute watcher cron (`* * * * * enforce.py check`) is what actually does the
+nagging. The weekly cron only **adds** the strong reminder on schedule.
+
+### When to use
+
+- Medications ("吃药 / 滴眼药 / 测血糖") — set a short interval (5–15 min) and a low
+  `max_remind` so the user is held accountable without spamming for hours.
+- Mandatory home chores ("倒垃圾 / 关门窗 / 喂宠物") — set a longer interval (30–60 min)
+  and a larger `max_remind`.
+- Critical work checkpoints ("发版前查报告 / 提交代码 review") — short interval,
+  no max — keep firing until the user explicitly confirms.
+
+Voice stays a nice-to-have; on every failure the daemon should fall back to Feishu
+(where reliability matters more than sound) and keep retrying. The workflow is
+**additive**: strong reminders coexist with normal dev-tasks voice announcements.
+
+---
