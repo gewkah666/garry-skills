@@ -68,6 +68,18 @@ python3 scripts/list.py
 
 简单需求走 `templates/` 预置模板，复杂需求 LLM 生成 Python 代码。
 
+## 报告体验标准
+
+报告主要在 Phantom 的手机 WebView 中阅读，生成或自由定制 Plotly figure 时必须遵守：
+
+- 页面外壳始终使用 `templates/base.html.tmpl`，不要自行拼一个裸 Plotly 页面。
+- 页面标题只出现一次；figure 的 `layout.title` 可以描述图表，但模板会移除与报告标题重复的顶层标题。
+- 优先使用 Phantom 色板：紫 `#8b7cff`、绿 `#6bcb9f`、金 `#e0a458`、红 `#ff7b7b`，背景保持透明。
+- 手机优先：避免固定宽度、横向溢出和过密刻度；多图报告在 390pt 宽度下仍应可读。
+- 必须保留 hover/tap 数据提示；模板同时提供“图表 / 数据”切换，不能用静态截图代替交互图。
+- 标题和描述写结论与范围，不写“端到端验收”“fixture”等内部测试术语，除非用户明确要求测试报告。
+- 数据源、空状态、加载失败和长文本必须可读；不要依赖颜色作为唯一信息编码。
+
 ## 模板
 
 `templates/` 目录：
@@ -152,6 +164,13 @@ python3 scripts/ingest.py --notion-db <id> --file data.csv
 
 # 4. 列出所有报表
 python3 scripts/list.py
+
+# 5. 用最新版移动端模板重绘已有报告（保留原 Plotly 数据）
+python3 scripts/restyle.py ~/dashboards/<id>/index.html \
+  --title "报告标题" \
+  --description "报告范围与一句话结论" \
+  --created-at "2026-08-28 15:20" \
+  --dashboard-id <id>
 ```
 
 ## 与其他 skill / plugin 的关系

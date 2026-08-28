@@ -158,6 +158,10 @@ def _build_pie(records, group_field, metric_field, intent_obj):
             "values": values,
             "hole": 0.4,
             "textinfo": "label+percent",
+            "marker": {
+                "colors": ["#8b7cff", "#6bcb9f", "#e0a458", "#ff7b7b", "#78a9ff", "#c58cff"],
+                "line": {"color": "#15171e", "width": 2},
+            },
         }],
         "layout": {
             "title": {"text": intent_obj.query, "font": {"size": 18}},
@@ -179,7 +183,7 @@ def _build_bar(records, group_field, metric_field, intent_obj):
             "type": "bar",
             "x": labels,
             "y": values,
-            "marker": {"color": "#4f8cff"},
+            "marker": {"color": "#8b7cff"},
         }],
         "layout": {
             "title": {"text": intent_obj.query, "font": {"size": 18}},
@@ -208,8 +212,8 @@ def _build_line(records, group_field, metric_field, intent_obj):
             "mode": "lines+markers",
             "x": labels,
             "y": values,
-            "line": {"color": "#4f8cff", "width": 2},
-            "marker": {"size": 6},
+            "line": {"color": "#8b7cff", "width": 3},
+            "marker": {"size": 7, "color": "#8b7cff", "line": {"color": "#15171e", "width": 2}},
         }],
         "layout": {
             "title": {"text": intent_obj.query, "font": {"size": 18}},
@@ -227,8 +231,18 @@ def _build_table(records, intent_obj):
     return {
         "data": [{
             "type": "table",
-            "header": {"values": [f"<b>{k}</b>" for k in keys], "fill": {"color": "#2a2f3a"}},
-            "cells": {"values": list(zip(*values)) if values else [], "fill": {"color": "#1a1d24"}},
+            "header": {
+                "values": [f"<b>{k}</b>" for k in keys],
+                "fill": {"color": "#1e212b"},
+                "font": {"color": "#ecedf1"},
+                "line": {"color": "#262a35"},
+            },
+            "cells": {
+                "values": list(zip(*values)) if values else [],
+                "fill": {"color": "#15171e"},
+                "font": {"color": "#8a90a0"},
+                "line": {"color": "#262a35"},
+            },
         }],
         "layout": {"title": {"text": intent_obj.query, "font": {"size": 18}}},
     }

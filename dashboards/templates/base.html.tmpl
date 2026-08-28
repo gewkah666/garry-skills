@@ -2,83 +2,353 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{{ title }} | Dashboards</title>
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0e1014" />
+  <title>{{ title | e }} | Hermes 报告</title>
+  <script defer src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
   <style>
     :root {
-      --bg: #0f1115;
-      --card: #1a1d24;
-      --fg: #e6e8eb;
-      --muted: #8a92a6;
-      --accent: #4f8cff;
+      color-scheme: dark;
+      --bg: #0e1014;
+      --surface: #15171e;
+      --surface-raised: #1e212b;
+      --hairline: #262a35;
+      --fg: #ecedf1;
+      --muted: #8a90a0;
+      --quiet: #5c606c;
+      --accent: #8b7cff;
+      --accent-soft: #2a3050;
+      --ok: #6bcb9f;
+      --error: #ff7b7b;
+      --shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
     }
+
     * { box-sizing: border-box; }
+    html { background: var(--bg); }
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
-      background: var(--bg);
+      min-height: 100vh;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(ellipse 34rem 24rem at 88% -8%, rgba(139, 124, 255, 0.12), transparent 70%),
+        var(--bg);
       color: var(--fg);
       line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
-    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
-    header { margin-bottom: 24px; }
-    h1 { margin: 0 0 8px 0; font-size: 28px; font-weight: 600; }
-    .meta { color: var(--muted); font-size: 14px; }
-    .meta span + span::before { content: " · "; margin: 0 4px; }
-    .card {
-      background: var(--card);
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    ::selection { color: #fff; background: rgba(139, 124, 255, 0.48); }
+    * { scrollbar-width: thin; scrollbar-color: var(--quiet) transparent; }
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-thumb { border-radius: 8px; background: var(--quiet); }
+
+    .container { width: min(100%, 1120px); margin: 0 auto; padding: 44px 28px 32px; }
+    .report-header { max-width: 760px; margin-bottom: 34px; }
+    h1 {
+      max-width: 22ch;
+      margin: 0;
+      color: var(--fg);
+      font-size: clamp(30px, 5vw, 52px);
+      font-weight: 720;
+      letter-spacing: -0.03em;
+      line-height: 1.08;
+      text-wrap: balance;
     }
-    .chart { width: 100%; min-height: 400px; }
-    footer {
-      margin-top: 32px;
-      padding-top: 16px;
-      border-top: 1px solid #2a2f3a;
+    .description {
+      max-width: 68ch;
+      margin: 16px 0 0;
       color: var(--muted);
-      font-size: 12px;
-      text-align: center;
+      font-size: 16px;
+      line-height: 1.65;
     }
-    footer a { color: var(--accent); text-decoration: none; }
-    footer a:hover { text-decoration: underline; }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      margin-top: 18px;
+      color: var(--quiet);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .meta span { min-width: 0; overflow-wrap: anywhere; }
+    .meta span + span::before { content: ""; display: inline-block; width: 3px; height: 3px; margin: 0 10px 2px 0; border-radius: 50%; background: var(--quiet); }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin: 0 0 18px;
+      padding: 17px 0;
+      border-block: 1px solid var(--hairline);
+    }
+    .summary-item { min-width: 0; padding: 0 20px; }
+    .summary-item:first-child { padding-left: 0; }
+    .summary-item + .summary-item { border-left: 1px solid var(--hairline); }
+    .summary-label { display: block; margin-bottom: 3px; color: var(--quiet); font-size: 11px; }
+    .summary-value { display: block; overflow: hidden; color: var(--fg); font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+
+    .report-surface {
+      overflow: hidden;
+      background: var(--surface);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 54px;
+      padding: 8px 12px 8px 18px;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .toolbar-title { margin: 0; color: var(--fg); font-size: 13px; font-weight: 620; }
+    .view-switcher { display: flex; gap: 3px; padding: 3px; border-radius: 10px; background: var(--bg); }
+    .view-button {
+      min-width: 60px;
+      min-height: 34px;
+      padding: 6px 12px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 160ms ease-out, background-color 160ms ease-out, transform 160ms ease-out;
+    }
+    .view-button:hover { color: var(--fg); }
+    .view-button:active { transform: scale(0.97); }
+    .view-button.is-active { color: var(--fg); background: var(--surface-raised); }
+    .view-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .visualization { position: relative; min-height: 460px; }
+    .chart { width: 100%; min-height: 460px; }
+    .chart[hidden], .data-view[hidden] { display: none; }
+    .chart-loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      background: var(--surface);
+      font-size: 13px;
+      transition: opacity 220ms ease-out, visibility 220ms ease-out;
+    }
+    .chart-loading::before {
+      content: "";
+      width: 22px;
+      height: 22px;
+      margin-right: 10px;
+      border: 2px solid var(--hairline);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 850ms linear infinite;
+    }
+    .chart-loading.is-hidden { visibility: hidden; opacity: 0; }
+    .chart-error { max-width: 36ch; margin: 0 auto; padding: 80px 24px; color: var(--error); text-align: center; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .data-view { overflow-x: auto; padding: 6px 18px 20px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+    th, td { padding: 13px 12px; border-bottom: 1px solid var(--hairline); text-align: left; }
+    th { position: sticky; top: 0; color: var(--muted); background: var(--surface); font-size: 11px; font-weight: 600; }
+    td:last-child, th:last-child { text-align: right; }
+    tbody tr:hover { background: rgba(139, 124, 255, 0.06); }
+    .empty-data { padding: 72px 24px; color: var(--muted); text-align: center; }
+
+    footer { margin-top: 28px; color: var(--quiet); font-size: 11px; text-align: center; }
+    footer a { color: var(--muted); text-decoration-line: underline; text-decoration-color: var(--hairline); text-underline-offset: 3px; }
+    footer a:hover { color: var(--fg); text-decoration-color: var(--accent); }
+    footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+    @media (max-width: 640px) {
+      .container { padding: 24px 14px 24px; }
+      .report-header { margin-bottom: 24px; padding: 0 4px; }
+      h1 { max-width: 100%; font-size: clamp(26px, 8vw, 34px); }
+      .description { margin-top: 12px; font-size: 14px; line-height: 1.6; }
+      .meta { gap: 5px 12px; margin-top: 14px; }
+      .meta .source { display: none; }
+      .summary { margin-bottom: 14px; }
+      .summary-item { padding: 0 12px; }
+      .summary-label { font-size: 10px; }
+      .summary-value { font-size: 16px; }
+      .report-surface { margin-inline: -14px; border-radius: 0; box-shadow: 0 14px 36px rgba(0, 0, 0, 0.24); }
+      .toolbar { padding-inline: 14px 10px; }
+      .visualization, .chart { min-height: 500px; }
+      .data-view { padding-inline: 8px; }
+      th, td { padding: 12px 10px; }
+      footer { padding-inline: 12px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>{{ title }}</h1>
-      <div class="meta">
-        {% if description %}<span>{{ description }}</span>{% endif %}
-        {% if created_at %}<span>{{ created_at }}</span>{% endif %}
-        {% if data_source %}<span>{{ data_source }}</span>{% endif %}
+  <main class="container">
+    <header class="report-header">
+      <h1>{{ title | e }}</h1>
+      {% if description %}<p class="description">{{ description | e }}</p>{% endif %}
+      <div class="meta" aria-label="报告信息">
+        {% if created_at %}<span>{{ created_at | e }}</span>{% endif %}
+        {% if data_source %}<span class="source" title="{{ data_source | e }}">{{ data_source | e }}</span>{% endif %}
       </div>
     </header>
 
-    <div class="card">
-      <div id="chart" class="chart"></div>
-    </div>
+    <section class="summary" aria-label="图表摘要">
+      <div class="summary-item"><span class="summary-label">系列</span><strong class="summary-value" id="series-count">—</strong></div>
+      <div class="summary-item"><span class="summary-label">数据点</span><strong class="summary-value" id="point-count">—</strong></div>
+      <div class="summary-item"><span class="summary-label">峰值</span><strong class="summary-value" id="peak-value">—</strong></div>
+    </section>
+
+    <section class="report-surface" aria-label="交互式数据报告">
+      <div class="toolbar">
+        <h2 class="toolbar-title">数据视图</h2>
+        <div class="view-switcher" role="tablist" aria-label="报告视图">
+          <button class="view-button is-active" id="chart-tab" type="button" role="tab" aria-selected="true" aria-controls="chart">图表</button>
+          <button class="view-button" id="data-tab" type="button" role="tab" aria-selected="false" aria-controls="data-view">数据</button>
+        </div>
+      </div>
+      <div class="visualization">
+        <div id="chart" class="chart" role="tabpanel" aria-labelledby="chart-tab" aria-busy="true"></div>
+        <div id="data-view" class="data-view" role="tabpanel" aria-labelledby="data-tab" hidden></div>
+        <div id="chart-loading" class="chart-loading" aria-live="polite">正在准备图表…</div>
+      </div>
+    </section>
 
     <footer>
-      Generated by <a href="/dashboards/">Hermes Dashboards</a> · {{ dashboard_id }}
+      由 <a href="/api/plugins/dashboards/page/">Hermes Dashboards</a> 生成 · {{ dashboard_id | e }}
     </footer>
-  </div>
+  </main>
 
   <script>
     const figure = {{ plotly_json | safe }};
-    const layout = Object.assign({}, figure.layout || {}, {
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)',
-      font: { color: '#e6e8eb', family: 'inherit' },
-      margin: { l: 50, r: 30, t: 50, b: 50 },
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const chart = document.querySelector('#chart');
+      const dataView = document.querySelector('#data-view');
+      const loading = document.querySelector('#chart-loading');
+      const chartTab = document.querySelector('#chart-tab');
+      const dataTab = document.querySelector('#data-tab');
+      const traces = Array.isArray(figure.data) ? figure.data : [];
+      const isMobile = window.matchMedia('(max-width: 640px)').matches;
+      const displayTraces = isMobile
+        ? traces.map((trace) => {
+            if (trace.type === 'bar') return { ...trace, textposition: 'none' };
+            if (trace.type === 'scatter' && typeof trace.mode === 'string') {
+              return { ...trace, mode: trace.mode.replace('+text', '').replace('text+', '') };
+            }
+            return trace;
+          })
+        : traces;
+
+      const rows = traces.flatMap((trace, traceIndex) => {
+        const labels = trace.labels || trace.x || [];
+        const values = trace.values || trace.y || [];
+        const length = Math.max(labels.length || 0, values.length || 0);
+        return Array.from({ length }, (_, index) => ({
+          series: trace.name || `系列 ${traceIndex + 1}`,
+          label: labels[index] ?? `#${index + 1}`,
+          value: values[index],
+        }));
+      });
+      const numericValues = rows.map((row) => Number(row.value)).filter(Number.isFinite);
+      const number = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 });
+      document.querySelector('#series-count').textContent = number.format(traces.length);
+      document.querySelector('#point-count').textContent = number.format(rows.length);
+      document.querySelector('#peak-value').textContent = numericValues.length ? number.format(Math.max(...numericValues)) : '—';
+
+      dataView.innerHTML = rows.length
+        ? `<table><thead><tr><th scope="col">系列</th><th scope="col">项目</th><th scope="col">数值</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.series)}</td><td>${escapeHtml(row.label)}</td><td>${escapeHtml(formatValue(row.value, number))}</td></tr>`).join('')}</tbody></table>`
+        : '<p class="empty-data">这份报告没有可展开的表格数据。</p>';
+
+      chartTab.addEventListener('click', () => selectView('chart'));
+      dataTab.addEventListener('click', () => selectView('data'));
+
+      if (typeof Plotly === 'undefined') {
+        loading.classList.add('is-hidden');
+        chart.removeAttribute('aria-busy');
+        chart.innerHTML = '<p class="chart-error">图表组件加载失败。请检查网络后重新打开报告。</p>';
+        return;
+      }
+
+      const sourceLayout = figure.layout || {};
+      const complexChart = traces.some((trace) => trace.xaxis === 'x2' || trace.yaxis === 'y2');
+      const sourceHeight = Number(sourceLayout.height);
+      const height = isMobile
+        ? Math.min(Math.max(sourceHeight ? sourceHeight * 0.76 : 520, 500), 700)
+        : Math.min(Math.max(sourceHeight || 560, 500), 860);
+      const layout = {
+        ...sourceLayout,
+        title: undefined,
+        autosize: true,
+        height,
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { ...(sourceLayout.font || {}), color: '#8a90a0', family: '-apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif', size: isMobile ? 11 : 12 },
+        margin: isMobile
+          ? { l: 46, r: 14, t: complexChart ? 72 : 26, b: 52 }
+          : { l: 62, r: 30, t: complexChart ? 78 : 38, b: 62 },
+        hoverlabel: { ...(sourceLayout.hoverlabel || {}), bgcolor: '#1e212b', bordercolor: '#262a35', font: { color: '#ecedf1' } },
+      };
+      Object.keys(layout).filter((key) => /^(xaxis|yaxis)\d*$/.test(key)).forEach((key) => {
+        layout[key] = {
+          ...(layout[key] || {}),
+          gridcolor: '#262a35',
+          linecolor: '#5c606c',
+          zerolinecolor: '#262a35',
+          tickfont: { color: '#8a90a0' },
+          title: layout[key]?.title ? { ...layout[key].title, font: { color: '#8a90a0', size: isMobile ? 11 : 12 } } : undefined,
+        };
+      });
+      if (Array.isArray(layout.annotations)) {
+        layout.annotations = layout.annotations.map((annotation) => ({
+          ...annotation,
+          font: { ...(annotation.font || {}), color: '#ecedf1', size: isMobile ? 12 : 14 },
+        }));
+      }
+      if (layout.legend) {
+        layout.legend = { ...layout.legend, font: { color: '#8a90a0', size: isMobile ? 10 : 11 } };
+      }
+
+      Plotly.newPlot(chart, displayTraces, layout, {
+        responsive: true,
+        displaylogo: false,
+        displayModeBar: !isMobile,
+        scrollZoom: false,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d', 'autoScale2d'],
+      }).then(() => {
+        chart.setAttribute('aria-busy', 'false');
+        loading.classList.add('is-hidden');
+      }).catch(() => {
+        loading.classList.add('is-hidden');
+        chart.removeAttribute('aria-busy');
+        chart.innerHTML = '<p class="chart-error">图表渲染失败。请重新打开报告后再试。</p>';
+      });
+
+      function selectView(view) {
+        const showChart = view === 'chart';
+        chart.hidden = !showChart;
+        dataView.hidden = showChart;
+        chartTab.classList.toggle('is-active', showChart);
+        dataTab.classList.toggle('is-active', !showChart);
+        chartTab.setAttribute('aria-selected', String(showChart));
+        dataTab.setAttribute('aria-selected', String(!showChart));
+        if (showChart && typeof Plotly !== 'undefined') requestAnimationFrame(() => Plotly.Plots.resize(chart));
+      }
     });
-    Plotly.newPlot('chart', figure.data, layout, {
-      responsive: true,
-      displaylogo: false,
-      modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-    });
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+    }
+
+    function formatValue(value, formatter) {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? formatter.format(numeric) : String(value ?? '');
+    }
   </script>
 </body>
 </html>
