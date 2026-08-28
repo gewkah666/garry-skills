@@ -23,7 +23,9 @@ def main() -> None:
     import requests
 
     try:
-        resp = requests.get(
+        session = requests.Session()
+        session.trust_env = False
+        resp = session.get(
             f"{PLUGIN_URL}/list",
             params={"limit": args.limit},
             headers=upload_headers(),

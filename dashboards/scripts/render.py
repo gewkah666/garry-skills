@@ -26,7 +26,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import intent as intent_mod
-from config import PLUGIN_URL, TEMPLATES_DIR, upload_headers
+from config import PAGE_BASE, PLUGIN_URL, TEMPLATES_DIR, upload_headers
 
 
 # ---------- 数据获取 ----------
@@ -293,7 +293,11 @@ def upload(html: str, dashboard_meta: dict[str, Any]) -> dict[str, Any]:
         "html": html,
         "meta": dashboard_meta,
     }
-    resp = requests.post(
+    # The dashboard is a local/WireGuard service. macOS system proxy settings
+    # otherwise send 10.66.0.5 through the desktop HTTP proxy and return 502.
+    session = requests.Session()
+    session.trust_env = False
+    resp = session.post(
         f"{PLUGIN_URL}/upload",
         json=payload,
         headers=upload_headers(),
@@ -367,6 +371,11 @@ def main() -> None:
     }
     try:
         result = upload(html, meta)
+        # The plugin deliberately returns a deployment-neutral relative URL.
+        # A configured public base lets Hermes hand Phantom a directly clickable
+        # 9120 URL while preserving the report ID allocated by the plugin.
+        if result.get("id") and PAGE_BASE:
+            result["public_url"] = f"{PAGE_BASE.rstrip('/')}/{result['id']}"
         print(json.dumps(result, ensure_ascii=False, indent=2))
     except Exception as e:
         # fallback: 写到本地

@@ -30,8 +30,8 @@ python3 scripts/render.py \
 1. LLM 解析 query → 数据需求（date range、metric、group_by、chart_type）
 2. 调 Notion MCP 拉数据（mcp__notion__API_query_a_data_source）
 3. 选模板或 LLM 生成 Python + Plotly 代码
-4. 渲染 HTML → POST 到 plugin `/api/plugins/dashboards/upload`
-5. 返回公网 URL
+4. 渲染 HTML → 用 `API_SERVER_KEY` POST 到 plugin `/api/plugins/dashboards/upload`
+5. 返回 `public_url`；最终答复必须把它写成可点击链接
 
 ### 2. 录入数据到 Notion
 
@@ -103,10 +103,10 @@ skill → plugin 上传时统一用：
 plugin 收到后渲染并保存为 `<DASHBOARDS_DIR>/<id>/index.html`，公网访问 URL 为：
 
 ```
-http://localhost:8000/api/plugins/dashboards/page/<id>
+http://localhost:9119/api/plugins/dashboards/page/<id>
 ```
 
-（经 phantom-proxy 暴露后：`https://公网域名/api/plugins/dashboards/page/<id>`
+（本机 Hermes 经 Phantom 入口暴露后：`http://101.43.41.167:9120/api/plugins/dashboards/page/<id>`
 
 或列表页 `/api/plugins/dashboards/page/`）
 
@@ -120,7 +120,9 @@ http://localhost:8000/api/plugins/dashboards/page/<id>
 ## 配置
 
 `scripts/config.py`:
-- `PLUGIN_URL`: 默认 `http://localhost:8000/api/plugins/dashboards`（Hermes 本地端口）
+- `DASHBOARDS_PLUGIN_URL`: 默认 `http://localhost:9119/api/plugins/dashboards`（Hermes dashboard 端口）；dashboard 绑定 WireGuard 地址时设为 `http://10.66.0.5:9119/api/plugins/dashboards`
+- `DASHBOARDS_PAGE_BASE`: 默认 `/api/plugins/dashboards/page`；本机 Hermes 给 Phantom 使用时设为 `http://101.43.41.167:9120/api/plugins/dashboards/page`
+- 上传 token：优先 `HERMES_SESSION_TOKEN`，否则复用 gateway 已加载的 `API_SERVER_KEY`
 - `DASHBOARDS_DIR`: plugin 会写到这里，默认 `~/dashboards/`
 - 模板目录：`templates/`
 
