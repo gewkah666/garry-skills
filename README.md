@@ -12,6 +12,8 @@
 | `mmx-cli` | MiniMax `mmx` CLI（文本/图像/视频/语音/音乐生成） | `mmx-cli/SKILL.md` |
 | `ride-notion` | 骑行/运动数据写入 Notion 阅览世界（手动或解析截图） | `ride-notion/SKILL.md` |
 | `water-reminder` | 智能喝水提醒（miloco TTS + 飞书确认 + 升级 + Notion 跳过会议） | `water-reminder/SKILL.md` |
+| `phantom-consolidation` | Phantom 记忆固化（phantom-consolidate 夜间任务 / 回填时怎么读事件、记什么） | `phantom-consolidation/SKILL.md` |
+| `phantom-escalate` | Phantom 坚持提醒（升级阶梯，直到确认；从 water-reminder 抽出） | `phantom-escalate/SKILL.md` |
 
 ## 安装方式
 
@@ -31,6 +33,10 @@
 ~/.hermes/skills/smart-home/miloco-tts    → ~/Projects/garry-skills/miloco-tts
 ~/.hermes/skills/smart-home/water-reminder → ~/Projects/garry-skills/water-reminder
 ~/.hermes/skills/mmx-cli                  → ~/Projects/garry-skills/mmx-cli
+~/.hermes/skills/phantom-consolidation    → ~/Projects/garry-skills/phantom-consolidation
+~/.hermes/skills/phantom-escalate         → ~/Projects/garry-skills/phantom-escalate
+# Phantom 的 skill 只给 Hermes 用（引用 phantom_* 工具），不链进 Claude Code；
+# 每个 Hermes profile 也各链一份，例如 ~/.hermes/profiles/sentinel/skills/phantom-escalate
 
 # 其他（mmx-cli 工具）
 ~/.agents/skills/mmx-cli → ~/Projects/garry-skills/mmx-cli
