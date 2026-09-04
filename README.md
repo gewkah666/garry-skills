@@ -12,6 +12,10 @@
 | `mmx-cli` | MiniMax `mmx` CLI（文本/图像/视频/语音/音乐生成） | `mmx-cli/SKILL.md` |
 | `ride-notion` | 骑行/运动数据写入 Notion 阅览世界（手动或解析截图） | `ride-notion/SKILL.md` |
 | `water-reminder` | 智能喝水提醒（miloco TTS + 飞书确认 + 升级 + Notion 跳过会议） | `water-reminder/SKILL.md` |
+| `daily-report` | 每日科技/游戏日报（抓源 → LLM 归类 → Notion 阅览世界；cron 01:00） | `daily-report/SKILL.md` |
+| `trip-manager` | Outlook 行程 ↔ Notion 归档、高德 MCP、攻略预览（cron 07:00 归档昨天） | `trip-manager/SKILL.md` · `CRON.md` |
+| `activity-manager` | 活动库刷新 / 标记已用 / 状态 | `activity-manager/SKILL.md` |
+| `anime-tracker` · `bangumi-resolve` · `dmhy-search` · `episode-renamer` | 追番：Bangumi 判连载 → DMHY 磁力 → aria2（cron 02:30）；剧集重命名 | `anime-tracker/CRON.md` |
 | `phantom-consolidation` | Phantom 记忆固化（phantom-consolidate 夜间任务 / 回填时怎么读事件、记什么） | `phantom-consolidation/SKILL.md` |
 | `phantom-escalate` | Phantom 坚持提醒（升级阶梯，直到确认；从 water-reminder 抽出） | `phantom-escalate/SKILL.md` |
 
@@ -34,6 +38,12 @@
 ~/.hermes/skills/phantom-escalate         → ~/Projects/garry-skills/phantom-escalate
 # Phantom 的 skill 只给 Hermes 用（引用 phantom_* 工具），不链进 Claude Code；
 # 每个 Hermes profile 也各链一份，例如 ~/.hermes/profiles/sentinel/skills/phantom-escalate
+
+# 迁移类（M-2，2026-09-04）：原来散在 ~/.hermes/skills 与 ~/.hermes/scripts 的都收进来了，旧路径留 symlink
+~/.hermes/skills/{anime-tracker,bangumi-resolve,dmhy-search,episode-renamer} → 本仓库同名目录
+~/.hermes/skills/garry-skills/{trip-manager,activity-manager}                 → 本仓库同名目录
+~/.hermes/scripts/{daily-report.sh,trip_archive.sh,anime-track-and-fetch.sh} 是 3 行包装 → _skill_cron.sh → 本仓库 skill 里的脚本
+（Hermes cron 只接受 ~/.hermes/scripts 下的 --script；_skill_cron.sh 跑完在 Phantom 事件库留一行 cron:<name>）
 
 # 其他（mmx-cli 工具）
 ~/.agents/skills/mmx-cli → ~/Projects/garry-skills/mmx-cli

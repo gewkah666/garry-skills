@@ -1,0 +1,84 @@
+{
+  "activities": [
+    {
+      "id": "ceb-jd-500",
+      "name": "光大×京东 满500减50",
+      "bank": "光大银行",
+      "rules": [
+        {
+          "freq": "weekly",
+          "weekday": 5
+        }
+      ],
+      "time": "10:00",
+      "quota": {
+        "per": "month",
+        "max": 1,
+        "year": 2026,
+        "year_max": 2
+      },
+      "valid_until": "2026-12-31",
+      "desc": "每周五10点，京东上用光大银行卡付款满500减50。每月最多1次，2026年全年最多2次。",
+      "enabled": true,
+      "used": {
+        "months": {},
+        "years": {}
+      },
+      "events": {},
+      "series_id": "AQMkADAwATMwMAItYzAzNS05ODgANy0wMAItMDAKAEYAAAPTNaZ4wIhJRYCvunTBWdeFBwCOv-hZl-DlTrnC0CR5oSz4AAACAQ0AAACOv-hZl-DlTrnC0CR5oSz4AAmJXE4vAAAA"
+    },
+    {
+      "id": "ceb-zfb-recharge",
+      "name": "光大×支付宝充话费 满100减8.8",
+      "bank": "光大银行",
+      "rules": [
+        {
+          "freq": "monthly",
+          "days_of_month": [
+            10,
+            20
+          ]
+        }
+      ],
+      "time": "10:00",
+      "quota": {
+        "per": "month",
+        "max": 2
+      },
+      "valid_until": "2026-12-31",
+      "desc": "默认每月10号、20号10点各提醒一次（活动本身每天10点可做）。支付宝充话费满100减8.8（光大卡付款），每月最多2次。想临时提前用掉名额，直接说一声即可。",
+      "enabled": true,
+      "used": {
+        "months": {},
+        "years": {}
+      },
+      "events": {},
+      "series_id": {
+        "10": "AQMkADAwATMwMAItYzAzNS05ODgANy0wMAItMDAKAEYAAAPTNaZ4wIhJRYCvunTBWdeFBwCOv-hZl-DlTrnC0CR5oSz4AAACAQ0AAACOv-hZl-DlTrnC0CR5oSz4AAmJXE4wAAAA",
+        "20": "AQMkADAwATMwMAItYzAzNS05ODgANy0wMAItMDAKAEYAAAPTNaZ4wIhJRYCvunTBWdeFBwCOv-hZl-DlTrnC0CR5oSz4AAACAQ0AAACOv-hZl-DlTrnC0CR5oSz4AAmJXE4xAAAA"
+      }
+    },
+    {
+      "id": "ceb-friday-dining",
+      "name": "光大×星巴克/肯德基 周五满减",
+      "bank": "光大银行",
+      "rules": [
+        {
+          "freq": "weekly",
+          "weekday": 5
+        }
+      ],
+      "time": "10:00",
+      "quota": null,
+      "valid_until": null,
+      "desc": "每周五10点，星巴克线下门店、肯德基线下+线上，支付宝用光大卡付款：一个满40减15、一个满30减10。【待核：具体档位与名额以活动宣传图为准，御主发图后更新】",
+      "enabled": true,
+      "used": {
+        "months": {},
+        "years": {}
+      },
+      "events": {},
+      "series_id": "AQMkADAwATMwMAItYzAzNS05ODgANy0wMAItMDAKAEYAAAPTNaZ4wIhJRYCvunTBWdeFBwCOv-hZl-DlTrnC0CR5oSz4AAACAQ0AAACOv-hZl-DlTrnC0CR5oSz4AAmJXE4yAAAA"
+    }
+  ]
+}

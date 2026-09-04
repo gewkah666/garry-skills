@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>川西行程交互地图</title>
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; background: #f5f5f7; color: #1d1d1f; }
+        header { background: linear-gradient(135deg, #1d1d1f 0%, #3a3a3c 100%); color: #fff; padding: 20px 24px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+        header h1 { font-size: 22px; font-weight: 600; }
+        header .subtitle { opacity: .75; font-size: 13px; }
+        .toolbar { background: #fff; border-bottom: 1px solid #e5e5ea; padding: 10px 24px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; position: sticky; top: 0; z-index: 500; }
+        .chip { padding: 6px 14px; border-radius: 999px; border: 1px solid #d2d2d7; background: #fff; color: #1d1d1f; font-size: 13px; cursor: pointer; transition: all .15s; user-select: none; }
+        .chip:hover { border-color: #007aff; color: #007aff; }
+        .chip.active { background: #007aff; border-color: #007aff; color: #fff; }
+        .engine-badge { margin-left: 8px; padding: 3px 10px; border-radius: 999px; font-size: 11px; background: #f0f0f2; color: #86868b; }
+        .legend { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 12px; color: #86868b; flex-wrap: wrap; }
+        .legend .lg-item { display: flex; align-items: center; gap: 4px; }
+        .legend .lg-dot { width: 12px; height: 12px; border-radius: 50%; }
+        .layout { display: grid; grid-template-columns: 320px 1fr; gap: 0; height: calc(100vh - 118px); }
+        .sidebar { background: #fff; border-right: 1px solid #e5e5ea; overflow-y: auto; padding: 12px; }
+        .day-card { border: 1px solid #e5e5ea; border-radius: 12px; margin-bottom: 10px; overflow: hidden; transition: box-shadow .15s; }
+        .day-card.hl { box-shadow: 0 0 0 2px rgba(0,122,255,.5); }
+        .day-header { padding: 12px 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+        .day-color { width: 6px; align-self: stretch; border-radius: 3px; flex-shrink: 0; }
+        .day-icon { font-size: 20px; }
+        .day-title { flex: 1; min-width: 0; }
+        .day-title .label { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .day-title .date { font-size: 11px; color: #86868b; margin-top: 2px; }
+        .day-transport { font-size: 15px; }
+        .day-content { max-height: 0; overflow: hidden; transition: max-height .3s; }
+        .day-card.open .day-content { max-height: 480px; }
+        .stop-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 14px 8px 30px; border-top: 1px solid #f0f0f2; font-size: 12.5px; cursor: pointer; }
+        .stop-item:hover { background: #f5f7ff; }
+        .stop-time { color: #86868b; flex-shrink: 0; min-width: 36px; font-variant-numeric: tabular-nums; }
+        .stop-icon { flex-shrink: 0; }
+        .stop-name { flex: 1; }
+        .map-wrap { position: relative; }
+        #map { height: 100%; width: 100%; }
+        .detail-card { position: absolute; left: 16px; bottom: 16px; background: rgba(255,255,255,.96); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 14px 18px; max-width: 340px; display: none; z-index: 600; backdrop-filter: blur(6px); }
+        .detail-card.show { display: block; }
+        .detail-card .dc-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+        .detail-card .dc-meta { font-size: 12px; color: #86868b; margin-bottom: 8px; }
+        .detail-card .dc-link { font-size: 12px; color: #007aff; text-decoration: none; }
+        .detail-card .dc-poi { margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; font-size: 12px; color: #666; max-height: 140px; overflow-y: auto; }
+        .detail-card .dc-poi .poi-row { padding: 3px 0; }
+        .amap-marker { width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.3); cursor: pointer; }
+        .amap-info { font-size: 13px; line-height: 1.6; }
+        .amap-info .t { font-weight: 600; }
+        .amap-info .s { color: #86868b; font-size: 12px; }
+        .amap-info a { font-size: 12px; color: #007aff; text-decoration: none; }
+        .leaflet-popup-content { margin: 10px 14px; line-height: 1.5; }
+        .leaflet-popup-content .wp-time { color: #86868b; font-size: 12px; }
+        .leaflet-popup-content .wp-link { font-size: 12px; color: #007aff; text-decoration: none; }
+        @media (max-width: 860px) {
+            .layout { grid-template-columns: 1fr; grid-template-rows: auto 55vh; }
+            .sidebar { border-right: none; border-bottom: 1px solid #e5e5ea; max-height: 30vh; }
+        }
+        .leaflet-container { background: #e8ecf0; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1 id="title">川西行程交互地图</h1>
+        <div class="subtitle" id="subtitle"></div>
+    </header>
+
+    <div class="toolbar" id="toolbar">
+        <div class="chip active" data-day="all">🗺️ 全部</div>
+        <div id="day-chips"></div>
+        <span class="engine-badge" id="engine-badge">引擎初始化…</span>
+        <div class="legend" id="legend"></div>
+    </div>
+
+    <div class="layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <div class="map-wrap">
+            <div id="map"></div>
+            <div class="detail-card" id="detail">
+                <div class="dc-title" id="dc-title">—</div>
+                <div class="dc-meta" id="dc-meta"></div>
+                <a class="dc-link" id="dc-link" target="_blank" href="#">查看 Notion 详情 ↗</a>
+                <div class="dc-poi" id="dc-poi"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script>
+        const DAY_COLORS = ['#007aff', '#ff9500', '#ff3b30', '#34c759', '#af52de', '#ff2d55', '#5ac8fa', '#ffcc00'];
+        const AMAP_TILE = 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8';
+
+        let tripData = null;
+        let engine = null;           // 'amap' | 'leaflet'
+        let map = null;
+        let currentDay = 'all';
+        let dayLayers = {};          // day -> {lines:[], markers:[]}
+        let allStops = [];
+
+        // ---------- 初始化 ----------
+        async function init() {
+            const resp = await fetch('./data.json');
+            tripData = await resp.json();
+
+            document.getElementById('title').textContent = tripData.trip.title || '行程地图';
+            document.getElementById('subtitle').textContent =
+                `${tripData.trip.start_date} → ${tripData.trip.end_date} · ${tripData.trip.days.length} 天`;
+
+            buildDayChips();
+            buildSidebar();
+            buildLegend();
+
+            const amapKey = tripData.trip.amap_key || '';
+            if (amapKey) {
+                try {
+                    await loadAmap(amapKey);
+                    initAmapMap();
+                    engine = 'amap';
+                    badge('高德地图');
+                } catch (e) {
+                    console.warn('AMap 初始化失败, 回退 Leaflet:', e);
+                    initLeafletMap();
+                    engine = 'leaflet';
+                    badge('Leaflet 兜底');
+                }
+            } else {
+                initLeafletMap();
+                engine = 'leaflet';
+                badge('Leaflet');
+            }
+            renderDay('all');
+        }
+
+        function badge(t) { document.getElementById('engine-badge').textContent = '🗺️ ' + t; }
+
+        // ---------- 高德 JS API ----------
+        function loadAmap(key) {
+            return new Promise((resolve, reject) => {
+                if (window.AMap) return resolve();
+                const s = document.createElement('script');
+                s.src = `https://webapi.amap.com/maps?v=2.0&key=${key}&plugin=AMap.Driving,AMap.PlaceSearch`;
+                s.onload = () => setTimeout(resolve, 100);
+                s.onerror = () => reject(new Error('AMap script load failed'));
+                document.head.appendChild(s);
+                setTimeout(() => { if (!window.AMap) reject(new Error('AMap load timeout')); }, 9000);
+            });
+        }
+
+        function initAmapMap() {
+            map = new AMap.Map('map', { zoom: 7, center: [101.5, 30.8], viewMode: '2D' });
+            // 构建各天图层
+            tripData.trip.days.forEach((day, i) => {
+                const color = DAY_COLORS[i % DAY_COLORS.length];
+                const wps = (day.waypoints_with_geo || []).filter(w => w.coords);
+                const markers = wps.map((wp, wi) => {
+                    const m = new AMap.Marker({
+                        position: [wp.coords.lng, wp.coords.lat],
+                        content: `<div class="amap-marker" style="background:${color}">${wi + 1}</div>`,
+                        offset: new AMap.Pixel(-13, -13),
+                        title: `${day.day} ${wp.time || ''} ${wp.name}`,
+                    });
+                    m.on('click', () => {
+                        showDetail(wp, day, color);
+                        const info = new AMap.InfoWindow({
+                            content: `<div class="amap-info"><div class="t">${wp.icon || '📍'} ${wp.name}</div><div class="s">${day.day} ${wp.time || ''}</div>${day.url ? `<a href="${day.url}" target="_blank">Notion 详情 ↗</a>` : ''}</div>`,
+                            offset: new AMap.Pixel(0, -30),
+                        });
+                        info.open(map, [wp.coords.lng, wp.coords.lat]);
+                    });
+                    allStops.push({ lng: wp.coords.lng, lat: wp.coords.lat, name: wp.name, day: day.day, time: wp.time, icon: wp.icon || '📍', url: day.url });
+                    return m;
+                });
+                dayLayers[day.day] = { lines: [], markers, color, day, wps };
+            });
+            // 用驾车规划画真实路线（失败自动直线兜底）
+            tripData.trip.days.forEach((day, i) => {
+                const Lyr = dayLayers[day.day];
+                const wps = Lyr.wps;
+                if (wps.length < 2) return;
+                const driving = new AMap.Driving({ policy: AMap.DrivingPolicy.LEAST_TIME, hideMarkers: true });
+                (async () => {
+                    for (let k = 0; k < wps.length - 1; k++) {
+                        const from = [wps[k].coords.lng, wps[k].coords.lat];
+                        const to = [wps[k + 1].coords.lng, wps[k + 1].coords.lat];
+                        await drawDrivingSegment(driving, from, to, Lyr);
+                    }
+                    if (currentDay === day.day || currentDay === 'all') fitToCurrent();
+                })();
+            });
+        }
+
+        function drawDrivingSegment(driving, from, to, Lyr) {
+            return new Promise((resolve) => {
+                let done = false;
+                const finish = (path) => {
+                    if (done) return; done = true;
+                    if (path && path.length > 1) {
+                        const poly = new AMap.Polyline({ path, strokeColor: Lyr.color, strokeWeight: 5, strokeOpacity: 0.8 });
+                        poly.setMap(map);
+                        Lyr.lines.push(poly);
+                    } else {
+                        // 直线兜底
+                        const poly = new AMap.Polyline({ path: [from, to], strokeColor: Lyr.color, strokeWeight: 4, strokeOpacity: 0.6, strokeStyle: 'dashed' });
+                        poly.setMap(map);
+                        Lyr.lines.push(poly);
+                    }
+                    resolve();
+                };
+                try {
+                    driving.search(from, to, (status, result) => {
+                        if (status === 'complete' && result.routes && result.routes[0]) {
+                            const path = result.routes[0].steps.flatMap(s => s.path || []);
+                            finish(path);
+                        } else {
+                            finish(null);
+                        }
+                    });
+                    setTimeout(() => finish(null), 12000);
+                } catch (e) { finish(null); }
+            });
+        }
+
+        function showAmapDay(dayKey) {
+            const days = dayKey === 'all' ? tripData.trip.days : tripData.trip.days.filter(d => d.day === dayKey);
+            days.forEach(d => {
+                const Lyr = dayLayers[d.day];
+                Lyr.markers.forEach(m => m.setMap(map));
+                Lyr.lines.forEach(l => l.setMap(map));
+            });
+            const hidden = tripData.trip.days.filter(d => !days.includes(d));
+            hidden.forEach(d => {
+                const Lyr = dayLayers[d.day];
+                Lyr.markers.forEach(m => m.setMap(null));
+                Lyr.lines.forEach(l => l.setMap(null));
+            });
+        }
+
+        // ---------- Leaflet 兜底 ----------
+        function initLeafletMap() {
+            map = L.map('map', { zoomControl: true, attributionControl: false }).setView([30.8, 101.5], 7);
+            L.tileLayer(AMAP_TILE, { subdomains: ['1', '2', '3', '4'], maxZoom: 18 }).addTo(map);
+            const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 });
+            map.on('tileerror', () => { if (!osm._map) osm.addTo(map); });
+
+            tripData.trip.days.forEach((day, i) => {
+                const color = DAY_COLORS[i % DAY_COLORS.length];
+                const wps = (day.waypoints_with_geo || []).filter(w => w.coords);
+                const markers = wps.map(wp => {
+                    const latlng = [wp.coords.lat, wp.coords.lng];
+                    const m = L.circleMarker(latlng, { radius: 9, color: '#fff', weight: 2.5, fillColor: color, fillOpacity: 0.95 });
+                    m.bindPopup(`<div style="font-size:13px;font-weight:600">${wp.icon || '📍'} ${wp.name}</div><div class="wp-time">${day.day} ${wp.time || ''}</div>${day.url ? `<a class="wp-link" href="${day.url}" target="_blank">Notion 详情 ↗</a>` : ''}`);
+                    m.on('click', () => showDetail(wp, day, color));
+                    allStops.push({ latlng, name: wp.name, day: day.day, time: wp.time, icon: wp.icon || '📍', url: day.url });
+                    return m;
+                });
+                const poly = wps.length > 1 ? L.polyline(wps.map(w => [w.coords.lat, w.coords.lng]), { color, weight: 4, opacity: 0.75 }) : null;
+                dayLayers[day.day] = { lines: poly ? [poly] : [], markers, color, day, wps };
+            });
+        }
+
+        function showLeafletDay(dayKey) {
+            const days = dayKey === 'all' ? tripData.trip.days : tripData.trip.days.filter(d => d.day === dayKey);
+            days.forEach(d => {
+                const Lyr = dayLayers[d.day];
+                Lyr.markers.forEach(m => m.addTo(map));
+                Lyr.lines.forEach(l => l.addTo(map));
+            });
+            const hidden = tripData.trip.days.filter(d => !days.includes(d));
+            hidden.forEach(d => {
+                const Lyr = dayLayers[d.day];
+                Lyr.markers.forEach(m => map.removeLayer(m));
+                Lyr.lines.forEach(l => map.removeLayer(l));
+            });
+        }
+
+        // ---------- 渲染调度 ----------
+        function renderDay(dayKey) {
+            currentDay = dayKey;
+            if (engine === 'amap') showAmapDay(dayKey); else showLeafletDay(dayKey);
+            document.querySelectorAll('.day-card').forEach(c => {
+                c.classList.toggle('hl', dayKey !== 'all' && c.dataset.day === dayKey);
+                if (dayKey !== 'all' && c.dataset.day === dayKey) c.classList.add('open');
+            });
+            fitToCurrent();
+            hideDetail();
+        }
+
+        function fitToCurrent() {
+            if (!map) return;
+            const days = currentDay === 'all' ? tripData.trip.days : tripData.trip.days.filter(d => d.day === currentDay);
+            const pts = [];
+            days.forEach(d => {
+                const Lyr = dayLayers[d.day];
+                if (!Lyr) return;
+                Lyr.markers.forEach(m => {
+                    if (engine === 'amap') pts.push(m.getPosition());
+                    else pts.push(m.getLatLng());
+                });
+                if (engine === 'amap') Lyr.lines.forEach(l => l.getPath().forEach(p => pts.push(p)));
+                else Lyr.lines.forEach(l => l.getLatLngs().forEach(p => pts.push(p)));
+            });
+            if (!pts.length) return;
+            if (engine === 'amap') map.setFitView(pts, false, [60, 60, 60, 60], 12);
+            else map.fitBounds(L.latLngBounds(pts).pad(0.15));
+        }
+
+        function focusStop(dayKey, name) {
+            document.querySelectorAll('#toolbar .chip').forEach(c => c.classList.remove('active'));
+            const chip = document.querySelector(`#toolbar .chip[data-day="${dayKey}"]`);
+            if (chip) chip.classList.add('active');
+            renderDay(dayKey);
+            const day = tripData.trip.days.find(d => d.day === dayKey);
+            const wp = (day.waypoints_with_geo || []).find(w => w.name === name && w.coords);
+            if (!wp) return;
+            if (engine === 'amap') {
+                map.setZoomAndCenter(11, [wp.coords.lng, wp.coords.lat], false, 800);
+                const Lyr = dayLayers[dayKey];
+                const m = Lyr.markers.find(mk => mk.getPosition().equals(new AMap.LngLat(wp.coords.lng, wp.coords.lat)));
+                if (m) setTimeout(() => AMap.event.trigger(m, 'click'), 900);
+            } else {
+                map.flyTo([wp.coords.lat, wp.coords.lng], 11, { duration: 0.8 });
+                const Lyr = dayLayers[dayKey];
+                const m = Lyr.markers.find(mk => mk.getLatLng().equals([wp.coords.lat, wp.coords.lng]));
+                if (m) setTimeout(() => m.openPopup(), 900);
+            }
+            const Lyr = dayLayers[dayKey];
+            showDetail(wp, day, Lyr.color);
+        }
+
+        // ---------- UI 构建 ----------
+        function buildDayChips() {
+            const chips = document.getElementById('day-chips');
+            chips.innerHTML = tripData.trip.days.map(d =>
+                `<div class="chip" data-day="${d.day}">${d.icon || '📍'} ${d.day}</div>`
+            ).join('');
+            chips.addEventListener('click', (e) => {
+                const chip = e.target.closest('.chip');
+                if (!chip) return;
+                document.querySelectorAll('#toolbar .chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                renderDay(chip.dataset.day);
+            });
+            document.querySelector('.chip[data-day="all"]').addEventListener('click', (e) => {
+                document.querySelectorAll('#toolbar .chip').forEach(c => c.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                renderDay('all');
+            });
+        }
+
+        function buildSidebar() {
+            const sb = document.getElementById('sidebar');
+            sb.innerHTML = tripData.trip.days.map((day, i) => `
+                <div class="day-card" data-day="${day.day}">
+                    <div class="day-header">
+                        <div class="day-color" style="background:${DAY_COLORS[i % DAY_COLORS.length]}"></div>
+                        <span class="day-icon">${day.icon || '📍'}</span>
+                        <div class="day-title">
+                            <div class="label">${day.day} · ${day.title}</div>
+                            <div class="date">${day.date}${day.transport ? ' · ' + day.transport : ''}</div>
+                        </div>
+                        <span class="day-transport">${day.transport || '—'}</span>
+                    </div>
+                    <div class="day-content">
+                        ${(day.waypoints || []).map(wp => `
+                            <div class="stop-item" data-day="${day.day}" data-name="${wp.name}">
+                                <span class="stop-time">${wp.time || ''}</span>
+                                <span class="stop-icon">${wp.icon || '📍'}</span>
+                                <span class="stop-name">${wp.name}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            sb.addEventListener('click', (e) => {
+                const stop = e.target.closest('.stop-item');
+                if (stop) { focusStop(stop.dataset.day, stop.dataset.name); return; }
+                const card = e.target.closest('.day-card');
+                if (card) card.classList.toggle('open');
+            });
+        }
+
+        function buildLegend() {
+            document.getElementById('legend').innerHTML = tripData.trip.days.map((d, i) =>
+                `<span class="lg-item"><span class="lg-dot" style="background:${DAY_COLORS[i % DAY_COLORS.length]}"></span>${d.day}</span>`
+            ).join('');
+        }
+
+        // ---------- 详情 ----------
+        function showDetail(wp, day, color) {
+            const dc = document.getElementById('detail');
+            document.getElementById('dc-title').textContent = `${wp.icon || '📍'} ${wp.name}`;
+            document.getElementById('dc-meta').textContent =
+                `${day.day} · ${wp.time || ''} · ${wp.coords.lat.toFixed(4)}, ${wp.coords.lng.toFixed(4)}`;
+            const link = document.getElementById('dc-link');
+            if (day.url) { link.href = day.url; link.style.display = ''; } else { link.style.display = 'none'; }
+            document.getElementById('dc-poi').innerHTML = '<div class="poi-row" style="color:#86868b">周边 POI 加载中…</div>';
+            dc.classList.add('show');
+            loadPOI(wp.coords.lng, wp.coords.lat);
+        }
+
+        function hideDetail() { document.getElementById('detail').classList.remove('show'); }
+
+        async function loadPOI(lng, lat) {
+            const box = document.getElementById('dc-poi');
+            try {
+                const resp = await fetch(`./api/poi?lng=${lng}&lat=${lat}&radius=3000&types=风景名胜|餐饮服务`);
+                const data = await resp.json();
+                if (data.pois && data.pois.length) {
+                    box.innerHTML = '<div class="poi-row" style="color:#86868b">周边推荐：</div>' +
+                        data.pois.slice(0, 5).map(p =>
+                            `<div class="poi-row">📍 ${p.name} <span style="color:#aaa">(${p.distance || ''}m)</span></div>`
+                        ).join('');
+                } else {
+                    box.innerHTML = '<div class="poi-row" style="color:#86868b">周边暂无 POI</div>';
+                }
+            } catch (e) {
+                box.innerHTML = '<div class="poi-row" style="color:#86868b">周边加载失败</div>';
+            }
+        }
+
+        init().catch(console.error);
+    </script>
+</body>
+</html>
