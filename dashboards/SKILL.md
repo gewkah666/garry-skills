@@ -21,7 +21,7 @@ metadata:
 用户："看看上月各品类支出分布"
 
 ```bash
-python3 scripts/render.py \
+~/.hermes/hermes-agent/venv/bin/python scripts/render.py \
   --query "上月各品类支出分布" \
   --notion-db <database_id>
 ```
@@ -38,7 +38,7 @@ python3 scripts/render.py \
 用户：粘贴 CSV/JSON
 
 ```bash
-python3 scripts/ingest.py \
+~/.hermes/hermes-agent/venv/bin/python scripts/ingest.py \
   --notion-db <database_id> \
   --file ~/Desktop/expenses.csv
 ```
@@ -48,7 +48,7 @@ python3 scripts/ingest.py \
 ### 3. 列出已有报表
 
 ```bash
-python3 scripts/list.py
+~/.hermes/hermes-agent/venv/bin/python scripts/list.py
 ```
 
 调 plugin API 列出所有报表 + 链接。
@@ -141,7 +141,6 @@ http://localhost:9119/api/plugins/dashboards/page/<id>
 ## 安装
 
 ```bash
-ln -sfnv ~/Projects/garry-skills/dashboards ~/.claude/skills/dashboards
 ln -sfnv ~/Projects/garry-skills/dashboards \
     ~/.hermes/skills/productivity/dashboards
 
@@ -152,21 +151,21 @@ pip install requests plotly jinja2
 
 ```bash
 # 1. 解析意图（dry-run，看 skill 怎么拆解需求）
-python3 scripts/intent.py --query "上月各品类支出分布"
+~/.hermes/hermes-agent/venv/bin/python scripts/intent.py --query "上月各品类支出分布"
 
 # 2. 拉数据 + 渲染 + 上传
-python3 scripts/render.py \
+~/.hermes/hermes-agent/venv/bin/python scripts/render.py \
   --query "上月各品类支出分布" \
   --notion-db 747e9f3b-0bbf-4f03-b678-7fc62a093790
 
 # 3. 录入数据
-python3 scripts/ingest.py --notion-db <id> --file data.csv
+~/.hermes/hermes-agent/venv/bin/python scripts/ingest.py --notion-db <id> --file data.csv
 
 # 4. 列出所有报表
-python3 scripts/list.py
+~/.hermes/hermes-agent/venv/bin/python scripts/list.py
 
 # 5. 用最新版移动端模板重绘已有报告（保留原 Plotly 数据）
-python3 scripts/restyle.py ~/dashboards/<id>/index.html \
+~/.hermes/hermes-agent/venv/bin/python scripts/restyle.py ~/dashboards/<id>/index.html \
   --title "报告标题" \
   --description "报告范围与一句话结论" \
   --created-at "2026-08-28 15:20" \

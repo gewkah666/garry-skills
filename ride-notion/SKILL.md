@@ -21,7 +21,7 @@ metadata:
 ### 1. 手动输入（最快）
 
 ```bash
-python3 scripts/ride_log.py log \
+~/.hermes/hermes-agent/venv/bin/python scripts/ride_log.py log \
   --distance 20.59 \
   --duration "1h13m44s" \
   --avg-speed 16.7 \
@@ -38,7 +38,7 @@ python3 scripts/ride_log.py log \
 
 ```bash
 # 截图保存到 ~/Desktop/ride.png
-python3 scripts/ride_log.py screenshot --file ~/Desktop/ride.png
+~/.hermes/hermes-agent/venv/bin/python scripts/ride_log.py screenshot --file ~/Desktop/ride.png
 ```
 
 内部的 OCR 用系统命令行工具（Tesseract / macOS Vision via Swift）。
@@ -47,7 +47,7 @@ python3 scripts/ride_log.py screenshot --file ~/Desktop/ride.png
 
 ```bash
 # 从 iPhone Health App 导出 XML
-python3 scripts/ride_log.py healthxport --file ~/Downloads/export.xml
+~/.hermes/hermes-agent/venv/bin/python scripts/ride_log.py healthxport --file ~/Downloads/export.xml
 ```
 
 ## 数据格式
@@ -92,14 +92,14 @@ def intensity(avg_hr, max_hr=190):
 
 ```bash
 # 段数据写入页面正文（page content）
-python3 scripts/ride_log.py log --segments '[{"speed":17.4,"hr":124,"time":17.11},{"speed":15.8,"hr":127,"time":18.52}]'
+~/.hermes/hermes-agent/venv/bin/python scripts/ride_log.py log --segments '[{"speed":17.4,"hr":124,"time":17.11},{"speed":15.8,"hr":127,"time":18.52}]'
 ```
 
 ### 4. 周报 / 月报
 
 ```bash
-python3 scripts/ride_log.py report --period weekly
-python3 scripts/ride_log.py report --period monthly
+~/.hermes/hermes-agent/venv/bin/python scripts/ride_log.py report --period weekly
+~/.hermes/hermes-agent/venv/bin/python scripts/ride_log.py report --period monthly
 ```
 
 ## 依赖
@@ -112,7 +112,6 @@ python3 scripts/ride_log.py report --period monthly
 
 ```bash
 # 1. 复制到 garry-skills（已 symlink）
-ln -sfnv ~/Projects/garry-skills/ride-notion ~/.claude/skills/ride-notion
 ln -sfnv ~/Projects/garry-skills/ride-notion \
     ~/.hermes/skills/smart-home/ride-notion
 
@@ -123,7 +122,7 @@ pip install requests Pillow pytesseract
 brew install tesseract
 
 # 4. 测试
-python3 scripts/ride_log.py test
+~/.hermes/hermes-agent/venv/bin/python scripts/ride_log.py test   # 注意：会真的写一条测试骑行到阅览世界，测完记得删
 ```
 
 ## 配置

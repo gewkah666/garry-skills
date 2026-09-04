@@ -20,12 +20,9 @@
 所有 skills 通过 symlink 共享：
 
 ```bash
-# Claude Code（全部）
-~/.claude/skills/dev-tasks       → ~/Projects/garry-skills/dev-tasks
+# Claude Code（只留写代码相关；生活类 skill 自 2026-09-04 M-1 起只在 Hermes 上，不再链进 Claude Code）
 ~/.claude/skills/miloco-tts      → ~/Projects/garry-skills/miloco-tts
 ~/.claude/skills/mmx-cli         → ~/Projects/garry-skills/mmx-cli
-~/.claude/skills/ride-notion     → ~/Projects/garry-skills/ride-notion
-~/.claude/skills/water-reminder  → ~/Projects/garry-skills/water-reminder
 
 # Hermes（按 frontmatter tags 分类）
 ~/.hermes/skills/productivity/dev-tasks  → ~/Projects/garry-skills/dev-tasks
@@ -43,6 +40,10 @@
 ```
 
 **单一来源**：所有改动都改 `~/Projects/garry-skills/`，symlink 自动同步。
+
+**生活类 skill 跑在 Hermes（Phantom）上**：dev-tasks / water-reminder / ride-notion / dashboards 只在 Hermes 里，
+用 Phantom 的事件库、打扰预算、escalate 做状态和提醒（旧脚本在各自 `legacy/`）。相关 cron：
+`water-reminder`（9–21 点每 2 小时）、`water-report`（22:00）。
 
 ## 添加新 skill
 

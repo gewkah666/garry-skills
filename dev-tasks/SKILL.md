@@ -14,9 +14,9 @@ description: >
 
 # Dev Tasks (Notion) — daily workflow
 
-Manage the user's development tasks in the Notion **Tasks** database using the `notionApi`
-MCP server (tools `mcp__plugin_Notion_notion__notion-*`, deferred — load with `ToolSearch`
-`select:<tool-name>` before first use each session).
+Manage the user's development tasks in the Notion **Tasks** database through Hermes' Notion
+MCP server (`notion`: search / fetch / query-data-source / create-pages / update-page /
+move-page). This skill runs on **Hermes (Phantom)**; Claude Code no longer owns it.
 
 This skill is a **workflow**, not just CRUD. The four scenarios it serves:
 1. **Morning planning** — turn the user's spoken plan into real Notion tasks for today.
@@ -93,27 +93,12 @@ calendar-facing `Completed On` is nudged later. Read the clock with PowerShell
 `Get-Date -Format 'yyyy-MM-dd HH:mm'` or Bash `date '+%Y-%m-%d %H:%M'` (local timezone).
 Concurrent tasks' blocks may overlap — that's fine.
 
-## Local day index (the "what's active now" tracker)
+## "What's active now" — ask Notion, keep no local index
 
-Because `query-data-sources` is unavailable on this plan (see List/review), Notion can't be
-asked "which tasks are In Progress?". Maintain a small local file as the durable index of
-today's plan and active set. **The Notion page is the system of record for the full log;
-this file is only a fast index.**
-
-Path: `C:\Users\echoG\.claude\dev-tasks\<YYYY-MM-DD>.md` (create the folder if missing).
-Format — one row per task, updated as tasks start/finish:
-
-```
-# Dev tasks — 2026-07-14
-| Task | Notion URL | Status | Start | End | Dur | Project |
-|---|---|---|---|---|---|---|
-| Fix SSE reconnect | https://app.notion.com/p/… | In Progress | 09:12 |  |  | Peppy |
-```
-
-At the start of a working session, read today's file (if present) to recover the active
-set. If it's missing but the user has clearly been mid-work, offer to reconstruct it.
-
----
+Hermes' Notion MCP can query the data source, so the active set is always a query, never a
+file: filter the Tasks data source `3f2616ff-95e7-837b-8444-074b10e56064` by
+`Status = In Progress` (and `Project` = Peppy unless told otherwise). Today's plan is the same
+query with `Completed On` on today's date. There is no second copy of the truth anywhere.
 
 ## Task granularity — keep it coarse (~30 min+)
 
@@ -137,11 +122,9 @@ to the minute.)
    each with: `Task name`, `Status: "Not Started"`, `Project: [Peppy]`, `Completed On` = today
    (date only), `Priority` if the user implies one, dev `Tags` when clearly applicable. Put the Goal/scope
    in the page `content` under a `## Goal` heading, and add an empty `## Work log` heading.
-4. Create/refresh the local day index with a row per task (Status `Not Started`).
-5. Report back the created tasks as a Markdown list with clickable Notion links.
-6. **(Optional) Voice announcement** — if the user has voice notifications enabled (see
-   "Voice notifications"), call the miloco-tts script to announce the plan, e.g.
-   `python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 今天的任务已规划，共 N 个，第一个是 <task 1 title>"`.
+4. Report back the created tasks as a Markdown list with clickable Notion links.
+5. **(Optional) Announcement** — if the user has announcements on (see "Announcements"),
+   `phantom_notify level=L1 kind=dev message="今天的任务已规划，共 N 个，第一个是 <task 1 title>"`.
 
 ## Scenario 2 — Start / execute / finish a task (time-tracked)
 
@@ -149,13 +132,12 @@ to the minute.)
 → `notion-update-page` `update_properties`
 `{ "Status": "In Progress", "date:Completed On:start": "<YYYY-MM-DDTHH:MM:00>", "date:Completed On:is_datetime": 1 }`
 (`Completed On` as a start point) → append to the page `## Work log` `- **Start** <YYYY-MM-DD HH:MM>`
-(`insert_content`, `position: end`) → set the day-index row Status `In Progress` and Start time.
-→ **(Optional) Voice announcement** — if enabled, call
-`python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 开始任务 <task title>"`.
+(`insert_content`, `position: end`).
+→ **(Optional) Announcement** — if enabled, `phantom_notify level=L1 kind=dev message="开始任务 <task title>"`.
 
 **During:** append progress notes to the task's `## Work log` as bullets (what was done,
 decisions, blockers, links). Each entry should make it obvious which task it belongs to when
-several are open. Keep the system of record in Notion; keep the day index in sync for status.
+several are open. Notion is the only system of record.
 
 **Finish:** derive the end per **Time rules** (end = start + workload effort, ≥30 min; read the
 `Completed On` start / Work-log Start back via `notion-fetch` if not in context) → append
@@ -163,10 +145,9 @@ several are open. Keep the system of record in Notion; keep the day index in syn
 log → set `Completed On` as a **range [start, end]** →
 `update_properties`
 `{ "Status": "Done", "date:Completed On:start": "<startISO>", "date:Completed On:end": "<endISO>", "date:Completed On:is_datetime": 1 }`
-(for a **research/investigation** task, place the block **later**, default ~18:00) → update the
-day-index row (End, Dur, Status Done) → **(Optional) Voice announcement** — if enabled, call
-`python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <task title> 完成，用时 <Xh Ym>"`
-(or "研究完成" for a research/investigation task) → Confirm to the user with the link.
+(for a **research/investigation** task, place the block **later**, default ~18:00) →
+**(Optional) Announcement** — if enabled, `phantom_notify level=L1 kind=dev message="任务 <task title> 完成，用时 <Xh Ym>"`
+→ Confirm to the user with the link.
 
 ## Scenario 3 — Drift detection
 
@@ -178,8 +159,7 @@ the stated goal), **pause and ask**, concretely:
 > "This looks outside **'<active task>'** (goal: <goal>). Want me to open a new task for
 > *<the new thing>* — and should I pause/keep the current one running?"
 
-→ **(Optional) Voice announcement** — if enabled, call
-`python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "对书房说 任务 <active task> 似乎跑偏了，目标是 <goal>，需要开新任务吗"`.
+→ **(Optional) Announcement** — if enabled, `phantom_notify level=L1 kind=dev message="任务 <active task> 似乎跑偏了，目标是 <goal>，需要开新任务吗"`.
 
 - If yes → create the new task (Scenario 1 mechanics; `Status` `Not Started` or, if starting
   it now, run Start), and optionally note the digression in the current task's Work log.
@@ -268,150 +248,35 @@ source (`collection://8aa616ff-95e7-8268-b269-0789ff95e092`) and use that as `Pr
 
 ---
 
-## Voice notifications (optional — miloco-tts skill)
+## Announcements (optional)
 
-If the **miloco-tts** skill is installed and the user has Xiaomi speakers / TV linked via
-miloco, the agent can announce dev-tasks events out loud. Each scenario marks where the
-announcement fits; the decision to actually speak defaults to **opt-in per user** — only
-announce when the user has said "voice on", "with voice", "播报" (or similar), or set a
-preference like "always announce starts/finishes". When in doubt, **ask once at the start
-of the day** whether voice is on for the session, then remember the answer for the day.
-
-### How to call
-
-The miloco-tts script is the same one the miloco-tts skill uses; locate it via the skill
-discovery path (e.g. `~/.hermes/skills/smart-home/miloco-tts/scripts/miloco_tts.py` or
-`~/.claude/skills/miloco-tts/scripts/miloco_tts.py` — both symlink to the same source).
-Invoke with bash:
-
-```bash
-python3 <skills-dir>/miloco-tts/scripts/miloco_tts.py "<natural-language command>"
-```
-
-The script auto-detects the target device (书房 总管 mini / 卧室 总管 Play / 客厅 电视
-etc.) from keywords like "对书房说" / "对卧室说" / "电视播报", strips the device + action
-words, and plays the remaining text via the miloco CLI. See miloco-tts SKILL.md for the full
-keyword/alias table.
-
-### Default phrases (Chinese — adapt if user prefers English)
-
-| Event | Phrase to speak |
-|---|---|
-| Plan my day done | "对书房说 今天的任务已规划，共 N 个，第一个是 <task 1 title>" |
-| Start task | "对书房说 开始任务 <task title>" |
-| Finish task | "对书房说 任务 <task title> 完成，用时 <Xh Ym>" |
-| Finish research | "对书房说 研究任务 <task title> 完成，耗时 <Xh Ym>" |
-| Drift detection | "对书房说 任务 <active task> 似乎跑偏了，目标是 <goal>，需要开新任务吗" |
-
-The "书房" target can be substituted with "卧室" or "客厅" (or "总管 mini" / "总管 play"
-/ "电视") per the user's standing preference.
-
-### When NOT to voice
-
-- During a **silent / focus** block the user has set — skip the announcement and just
-  write the Notion update.
-- When the user explicitly says "no voice" / "别播" / "silent" — turn off voice for the
-  rest of the session.
-- When the TTS script fails (miloco not reachable, device offline) — log a one-line
-  warning in the work log and continue silently; never block the dev-tasks flow on TTS.
-
-### Failures must never break the workflow
-
-Voice is a nice-to-have. Wrap the TTS invocation so that any failure (network, device
-busy, script not found) is logged to the work log as `- ⚠ voice skipped: <reason>` and
-the underlying Notion update still completes. Voice is never in the critical path.
+Announcements go through `phantom_notify` (L1 → Feishu; the interruption budget decides
+whether now is a good moment, so never bypass it). Opt-in per user: only announce when the
+user has said "播报" / "voice on" / "announce", or set a standing preference. When in doubt,
+ask once at the start of the day and remember the answer for the day. An announcement is
+never in the critical path: if `phantom_notify` reports deferred/denied, the Notion update
+still completes and nothing is retried.
 
 ---
 
 ## Strong reminders (must-do enforcement)
 
-When the user says a task is **strong / mandatory / 强提醒 / 必须要做**, escalation goes
-beyond the standard optional TTS: a long-running daemon keeps nagging via miloco-tts
-(TTS to 书房 mini) and Feishu until the user confirms completion, so a forgotten task
-never slips past.
+When the user says a task is **strong / mandatory / 强提醒 / 必须要做**, hand it to
+`phantom_escalate` — the reminder that insists until confirmed and climbs the interruption
+ladder (Feishu → Bark → speaker) under the budget:
 
-### Tooling
-
-A dedicated helper lives at `<skill-dir>/scripts/enforce.py`:
-
-```bash
-# Add a strong reminder
-python3 enforce.py add "吃药" --reason "饭后 30 分钟" --interval 5
-
-# Add with a hard cap (stop nagging after N reminders)
-python3 enforce.py add "查报告" --reason "上线前必看" --interval 10 --max-remind 5
-
-# List all currently active strong reminders
-python3 enforce.py list
-
-# User confirms completion → stop nagging
-python3 enforce.py done "吃药"
-# (cancel is an alias for done)
-
-# Manual one-shot check (used by the per-minute cron)
-python3 enforce.py check
-
-# Foreground loop (don't use with cron)
-python3 enforce.py watch --interval 30
+```
+phantom_escalate action=start
+  what="吃药"  message="饭后 30 分钟了，该吃药了。吃了回一个字。"
+  level=L1  ladder=[{after:"5m",level:"L2"},{after:"10m",level:"L2"},{after:"20m",level:"L3"}]   # adapt the interval the user asked for
+  expires="2h"  confirm_keywords=["完成","吃了","done"]  kind=dev
 ```
 
-State lives at `~/.hermes/dev-tasks/enforce_state.json` and survives restarts. Each entry
-tracks created_at, last_remind_at, remind_count, interval_min, optional max_remind, and
-status (`pending` / `done` / `timeout` / `cancelled`).
+- The user silences it by replying with a confirm keyword (the hook attributes it) or by
+  asking you to `phantom_escalate action=cancel`.
+- A recurring strong reminder (e.g. weekly cleaning) is a Hermes cron whose prompt runs the
+  `start` above — no wrapper scripts, no state files.
+- Confirmed / expired reminders show up in the nightly review and the audit view.
 
-### Escalation behaviour
-
-When `enforce.py check` runs (e.g. every minute via cron), each pending task:
-
-- If `last_remind_at` is unset → fire immediately.
-- If `(now − last_remind_at) ≥ interval_min` and `remind_count < max_remind` → fire again.
-- If `max_remind > 0` and `remind_count ≥ max_remind` → mark `timeout` and notify once.
-
-Each fire:
-
-- TTS via miloco-tts to 书房 mini: `"强提醒：<task>，请立即完成"`.
-- Feishu message: a `⚠️ 强提醒 [<task>]` block with reason, remind count, and the
-  next interval. User replies with `完成 <task>` to silence.
-
-### Wiring it to cron
-
-Add a no-agent cron that runs the wrapper script. Example for a weekly
-Tuesday-11:00 "打扫" reminder:
-
-```bash
-# Wrapper script at ~/.hermes/scripts/weekly_cleaning.sh
-#!/bin/bash
-python3 ~/.hermes/scripts/enforce.py add 打扫 \
-  --reason '每周二固定清洁日' \
-  --interval 30 \
-  --max-remind 8
-
-# Then
-hermes cron create --name weekly-cleaning-enforce \
-  --script "weekly_cleaning.sh" \
-  --no-agent \
-  --deliver local \
-  "0 11 * * 2"
-```
-
-(Important: use `--script` and put the script under `~/.hermes/scripts/` with the full
-argument list in the wrapper. Putting the args directly on `--script "enforce.py add ..."`
-does not work — Hermes treats the whole string as the script path.)
-
-The per-minute watcher cron (`* * * * * enforce.py check`) is what actually does the
-nagging. The weekly cron only **adds** the strong reminder on schedule.
-
-### When to use
-
-- Medications ("吃药 / 滴眼药 / 测血糖") — set a short interval (5–15 min) and a low
-  `max_remind` so the user is held accountable without spamming for hours.
-- Mandatory home chores ("倒垃圾 / 关门窗 / 喂宠物") — set a longer interval (30–60 min)
-  and a larger `max_remind`.
-- Critical work checkpoints ("发版前查报告 / 提交代码 review") — short interval,
-  no max — keep firing until the user explicitly confirms.
-
-Voice stays a nice-to-have; on every failure the daemon should fall back to Feishu
-(where reliability matters more than sound) and keep retrying. The workflow is
-**additive**: strong reminders coexist with normal dev-tasks voice announcements.
-
----
+The old `enforce.py` daemon (own state file, own TTS + Feishu loop) is kept under `legacy/`
+for reference only. Do not run it.
