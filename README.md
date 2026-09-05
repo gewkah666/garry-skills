@@ -24,9 +24,8 @@
 所有 skills 通过 symlink 共享：
 
 ```bash
-# Claude Code（只留写代码相关；生活类 skill 自 2026-09-04 M-1 起只在 Hermes 上，不再链进 Claude Code）
-~/.claude/skills/miloco-tts      → ~/Projects/garry-skills/miloco-tts
-~/.claude/skills/mmx-cli         → ~/Projects/garry-skills/mmx-cli
+# Claude Code（2026-09-05 起全量安装：本仓库每个带 SKILL.md 的目录都链进 ~/.claude/skills/<name>）
+for d in ~/Projects/garry-skills/*/; do n=$(basename "$d"); [ -f "$d/SKILL.md" ] && ln -sfn "$HOME/Projects/garry-skills/$n" "$HOME/.claude/skills/$n"; done
 
 # Hermes（按 frontmatter tags 分类）
 ~/.hermes/skills/productivity/dev-tasks  → ~/Projects/garry-skills/dev-tasks
