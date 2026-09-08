@@ -213,7 +213,7 @@ def build_body(notes: Optional[str] = None, **meta) -> str:
 # ---------------------------------------------------------------- 事件
 
 # 同一本 Outlook 日历上其它 skill 建的事件（按 category 识别），行程相关脚本一律忽略
-IGNORE_CATEGORY_WORDS = ("权益活动",)
+IGNORE_CATEGORY_WORDS = ("权益活动", "信用卡")
 
 
 def is_trip_event(ev: dict) -> bool:

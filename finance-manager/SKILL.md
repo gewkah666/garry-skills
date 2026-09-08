@@ -98,6 +98,12 @@ metadata:
 - 每月 1 号月报前需要最新导出。1 号 07:30 有 cron 提醒御主导出；御主发来 xlsx 后按下面导入，再 `finance_report force:true` 重做当月报告。
 - 御主问状况时先看 `finance_status` 的 `last_record`，落后 3 天以上就提一句「钱迹最近一次导入到 X 日」。
 
+## 信用卡：额度 / 出账日 / 还款日 / 日历提醒
+
+- 三个数记在 Notion 账户库的「额度 / 出账日 / 还款日」字段（御主说「浦发额度 10 万，25 号出账，15 号还款」就直接改账户页；`finance_status` 会带出来）。
+- 日历：`scripts/card_calendar.py sync` 按账户库给每张使用中的信用卡建两个 Outlook 月度重复事件：「💳 X 出账」（出账日 09:00）和「💳 还 X」（还款日 10:00，准点提醒），category「💳 信用卡」，trip-manager 归档会忽略。系列 id 存回账户库「提醒系列」，改日子 / 销卡后再跑一次 sync 会自动删旧建新。`card_calendar.py list` 看现状。
+- 御主问「这个月要还多少」→ `finance_status` 里信用卡余额的相反数就是当前欠款；出账日之后到还款日之间提醒他。
+
 ## 导入钱迹导出
 
 御主发来钱迹（QianJi）xlsx（飞书里的文件先存到 ~/Downloads）：`scripts/finance_cli.py import --file <xlsx> --since <起始日>` 先预演，看 `flags`（分类靠猜、账户认不出、借贷一端不是自己账户）和 `without_account`，回给御主确认后加 `--apply`。按「分钟 + 金额」与已有记录去重，钱迹「平账」行不导入（余额以截图对账为准）。导入后提醒御主发余额截图对账。
