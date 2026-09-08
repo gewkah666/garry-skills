@@ -183,6 +183,10 @@ cron `finance-monthly-report`，`0 8 1 * *`，no-agent：`~/.hermes/scripts/fina
 
 账户库新增「额度 / 出账日 / 还款日 / 提醒系列」。`scripts/card_calendar.py sync` 为每张使用中的信用卡建 Outlook 月度重复事件（出账 09:00、还款 10:00，category「💳 信用卡」，trip-manager 的 `IGNORE_CATEGORY_WORDS` 已加「信用卡」）。已录：浦发银行信用卡 额度 100,000、出账 25 日（还款日待补）。其余五张卡的三个数待御主提供。
 
+## 11.7 报告怎么送达（2026-09-08）
+
+御主要 HTML 形式的报告。dashboards 的公网链接（9118）在 Phantom 门后，飞书里点开是 `no_token` 401，只有 Phantom App 能开。所以月报推送 = 飞书一句话 + 链接 + **HTML 文件**（`scripts/feishu_file.py`，用网关自己的飞书应用凭证上传 `im/v1/files` 再发 file 消息）。副本在 `~/.hermes/finance-reports/`。
+
 ## 12. 进度
 
 - 2026-09-08 M0 完成：明细库加「子类 / 指纹 / 来源」，类型补齐新一级，收支类型加「调整」；账户库加「别名 / 尾号 / 状态」，`8877` 改名「广发银行信用卡(8877)」已销户，重复的「京东金融」合并；阅览世界「类型」加「财务」。

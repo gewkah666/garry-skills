@@ -27,7 +27,7 @@ metadata:
 | `finance_reconcile` | 余额 / 欠款截图 |
 | `finance_sync` | 御主说刚在 Notion 手改了，要立刻反映；或怀疑数据不对 |
 | `finance_account` | 截图里出现新卡尾号 / 卡面名 → `update` 追加 tail_add / alias_add；御主报信用卡额度、出账日、还款日 → `update`（自动同步 Outlook 提醒）；销卡 → status=已销户；新卡 → `create` |
-| `finance_report` | 「看看 8 月的报告」「上个月的月报」；对话里要看就 `notify:false`，回复把链接写成可点击 |
+| `finance_report` | 「看看 8 月的报告」「上个月的月报」。返回的 `url` 只能在 Phantom App 里打开；御主在飞书时保持 `notify:true`，工具会把 HTML 文件发到飞书，回复里说「文件已发，链接在 Phantom 里打开」 |
 
 ## 记账（文字 / 语音）
 
