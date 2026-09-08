@@ -9,7 +9,7 @@
   finance_cli.py update --id ID|--latest|--text T [--days N] --set key=value [...]
   finance_cli.py delete --id ID|--latest|--text T [--no-pair]
   finance_cli.py reconcile --account A --balance N [--at "YYYY-MM-DD HH:MM"] [--evidence ..]
-  finance_cli.py import --file bills.csv        (M4)
+  finance_cli.py import --file QianJi.xlsx [--since 2026-04-01] [--until D] [--apply]   钱迹导出，默认只预演
   finance_cli.py report [--month YYYY-MM|last|this] [--no-notify] [--no-diary] [--no-upload] [--force]
 
 Loads ~/.hermes/plugins/finance directly (no Hermes needed). Output is JSON.
@@ -57,7 +57,8 @@ def main() -> int:
     s = sub.add_parser("reconcile")
     s.add_argument("--account", required=True); s.add_argument("--balance", type=float, required=True)
     s.add_argument("--at"); s.add_argument("--evidence")
-    s = sub.add_parser("import"); s.add_argument("--file", required=True)
+    s = sub.add_parser("import"); s.add_argument("--file", required=True); s.add_argument("--since", default="2026-04-01")
+    s.add_argument("--until", default="2099-12-31"); s.add_argument("--apply", action="store_true", help="不加 = 只预演")
     s = sub.add_parser("report"); s.add_argument("--month", default="last")
     s.add_argument("--no-notify", action="store_true"); s.add_argument("--no-diary", action="store_true")
     s.add_argument("--no-upload", action="store_true"); s.add_argument("--force", action="store_true")
@@ -91,6 +92,9 @@ def main() -> int:
             out = ops.delete(loc, with_pair=not a.no_pair)
     elif a.cmd == "reconcile":
         out = ops.reconcile(a.account, a.balance, a.at, a.evidence)
+    elif a.cmd == "import":
+        from finance import importers
+        out = importers.apply_qianji(a.file, a.since, a.until, dry_run=not a.apply)
     elif a.cmd == "report":
         out = ops.report(a.month, notify=not a.no_notify, diary=not a.no_diary, upload=not a.no_upload, force=a.force)
     else:
