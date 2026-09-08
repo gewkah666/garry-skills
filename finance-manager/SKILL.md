@@ -26,6 +26,7 @@ metadata:
 | `finance_query` | 「上周餐饮」「9 月打车花了多少」「最近几笔」 |
 | `finance_reconcile` | 余额 / 欠款截图 |
 | `finance_sync` | 御主说刚在 Notion 手改了，要立刻反映；或怀疑数据不对 |
+| `finance_report` | 「看看 8 月的报告」「上个月的月报」；对话里要看就 `notify:false`，回复把链接写成可点击 |
 
 ## 记账（文字 / 语音）
 
@@ -96,7 +97,7 @@ metadata:
 
 ## 定时任务
 
-见 `CRON.md`（月报，M3）。
+每月 1 号 08:00 `finance-monthly-report` 自动出上月月报（dashboards 链接 + 阅览世界「财务」页 + 飞书一句话）。细节见 `CRON.md`。御主月中想看本月到目前为止 → `finance_status`，不要生成半个月的报告。
 
 ## 记 Phantom
 

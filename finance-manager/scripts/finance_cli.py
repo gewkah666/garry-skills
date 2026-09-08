@@ -10,7 +10,7 @@
   finance_cli.py delete --id ID|--latest|--text T [--no-pair]
   finance_cli.py reconcile --account A --balance N [--at "YYYY-MM-DD HH:MM"] [--evidence ..]
   finance_cli.py import --file bills.csv        (M4)
-  finance_cli.py report --month YYYY-MM|last    (M3)
+  finance_cli.py report [--month YYYY-MM|last|this] [--no-notify] [--no-diary] [--no-upload] [--force]
 
 Loads ~/.hermes/plugins/finance directly (no Hermes needed). Output is JSON.
 """
@@ -59,6 +59,8 @@ def main() -> int:
     s.add_argument("--at"); s.add_argument("--evidence")
     s = sub.add_parser("import"); s.add_argument("--file", required=True)
     s = sub.add_parser("report"); s.add_argument("--month", default="last")
+    s.add_argument("--no-notify", action="store_true"); s.add_argument("--no-diary", action="store_true")
+    s.add_argument("--no-upload", action="store_true"); s.add_argument("--force", action="store_true")
     a = ap.parse_args()
     ops = load()
 
@@ -89,8 +91,10 @@ def main() -> int:
             out = ops.delete(loc, with_pair=not a.no_pair)
     elif a.cmd == "reconcile":
         out = ops.reconcile(a.account, a.balance, a.at, a.evidence)
+    elif a.cmd == "report":
+        out = ops.report(a.month, notify=not a.no_notify, diary=not a.no_diary, upload=not a.no_upload, force=a.force)
     else:
-        out = {"ok": False, "error": f"{a.cmd}: M3/M4 尚未实现"}
+        out = {"ok": False, "error": f"{a.cmd}: M4 尚未实现"}
     print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
     return 0 if out.get("ok") else 1
 

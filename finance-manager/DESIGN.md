@@ -134,7 +134,7 @@ references/accounts.md      账户识别线索（App 名 / 卡面 / 尾号）→
 references/parse-examples.md  文字 / 截图 → items[] 样例（支付宝账单页、微信账单页、银行 App 明细、信用卡账单、余额页）
 scripts/finance_cli.py      record / query / status / report / sync / import / reconcile；Claude Code 与 cron 用，直接 import plugin 模块
 scripts/monthly_report.sh   cron 入口（经 _skill_cron.sh）
-templates/monthly.html.tmpl 月报（沿用 dashboards base 模板、Phantom 色板、手机优先）
+（月报模板在 plugin 仓库 templates/monthly.html.tmpl，渲染器和模板放一起）
 ```
 
 行为规则要点：
@@ -179,4 +179,5 @@ cron `finance-monthly-report`，`0 8 1 * *`，no-agent：`~/.hermes/scripts/fina
 
 - 2026-09-08 M0 完成：明细库加「子类 / 指纹 / 来源」，类型补齐新一级，收支类型加「调整」；账户库加「别名 / 尾号 / 状态」，`8877` 改名「广发银行信用卡(8877)」已销户，重复的「京东金融」合并；阅览世界「类型」加「财务」。
 - 2026-09-08 M1 完成：plugin `~/Projects/hermes-finance-plugin`（→ `~/.hermes/plugins/finance`，已启用），七个工具全部可用，9 个单元测试通过；真实 Notion 全量同步 8010 条 97 秒，状况查询即时；记账 / 去重 / 改 / 转账成对 / 删 / 对账真实回归通过（测试行已归档）。skill 文件：SKILL.md、references/{categories,accounts,parse-examples}.md、scripts/finance_cli.py、CRON.md。
+- 2026-09-08 M3 完成：`finance_report` 工具 + `finance_cli.py report`，模板在 plugin 仓库 `templates/monthly.html.tmpl`；cron `finance-monthly-report`（`0 8 1 * *`，下次 2026-10-01 08:00）已建；用 2026-05 真实数据跑通：dashboards 上传、阅览世界「2026-05 财务月报」页（类型=财务，47 个块）、飞书 L1 送达。历史月份的账户余额 / 净资产在 M4 回填前不可信（单行转账 + 6 月归零调整记成了收支）。
 - 待做：M2 截图流程实战验证（规则已写在 SKILL.md，需要御主发真实截图试）；M3 月报；M4 历史治理（分类回填 3013 条旧值、8010 条补子类、668 条转账补对手行、6 月调整改「调整」、CSV 导入）。
