@@ -26,6 +26,7 @@ metadata:
 | `finance_query` | 「上周餐饮」「9 月打车花了多少」「最近几笔」 |
 | `finance_reconcile` | 余额 / 欠款截图 |
 | `finance_sync` | 御主说刚在 Notion 手改了，要立刻反映；或怀疑数据不对 |
+| `finance_account` | 截图里出现新卡尾号 / 卡面名 → `update` 追加 tail_add / alias_add；御主报信用卡额度、出账日、还款日 → `update`（自动同步 Outlook 提醒）；销卡 → status=已销户；新卡 → `create` |
 | `finance_report` | 「看看 8 月的报告」「上个月的月报」；对话里要看就 `notify:false`，回复把链接写成可点击 |
 
 ## 记账（文字 / 语音）
@@ -100,7 +101,7 @@ metadata:
 
 ## 信用卡：额度 / 出账日 / 还款日 / 日历提醒
 
-- 三个数记在 Notion 账户库的「额度 / 出账日 / 还款日」字段（御主说「浦发额度 10 万，25 号出账，15 号还款」就直接改账户页；`finance_status` 会带出来）。
+- 三个数记在 Notion 账户库的「额度 / 出账日 / 还款日」字段。御主说「浦发额度 10 万，25 号出账，15 号还款」→ `finance_account update name=浦发信用卡 credit_limit=100000 statement_day=25 due_day=15`，工具会顺手跑日历同步并在返回里带结果；`finance_status` 会带出这三个数。
 - 日历：`scripts/card_calendar.py sync` 按账户库给每张使用中的信用卡建两个 Outlook 月度重复事件：「💳 X 出账」（出账日 09:00）和「💳 还 X」（还款日 10:00，准点提醒），category「💳 信用卡」，trip-manager 归档会忽略。系列 id 存回账户库「提醒系列」，改日子 / 销卡后再跑一次 sync 会自动删旧建新。`card_calendar.py list` 看现状。
 - 御主问「这个月要还多少」→ `finance_status` 里信用卡余额的相反数就是当前欠款；出账日之后到还款日之间提醒他。
 
