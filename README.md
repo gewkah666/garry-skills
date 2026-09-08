@@ -13,7 +13,9 @@
 | `ride-notion` | 骑行/运动数据写入 Notion 阅览世界（手动或解析截图） | `ride-notion/SKILL.md` |
 | `water-reminder` | 智能喝水提醒（miloco TTS + 飞书确认 + 升级 + Notion 跳过会议） | `water-reminder/SKILL.md` |
 | `daily-report` | 每日科技/游戏日报（抓源 → LLM 归类 → Notion 阅览世界；cron 01:00） | `daily-report/SKILL.md` |
-| `trip-manager` | Outlook 行程 ↔ Notion 归档、高德 MCP、攻略预览（cron 07:00 归档昨天） | `trip-manager/SKILL.md` · `CRON.md` |
+| `trip-manager` | Outlook 行程（body 元数据契约）→ 出发前检查 → 手机行程模式 / 地图 → Notion 归档（cron 07:00 归档昨天）；高德 MCP | `trip-manager/SKILL.md` · `CRON.md` |
+| `trip-guide` | 旅行手册：行程骨架从 trip-manager 导入 → agent 按章节研究填 guide.json → 审计 → 单文件 HTML（手机优先，离线可看）→ dashboards 发布 | `trip-guide/SKILL.md` · `references/content-model.md` |
+| `finance-manager` | 财务管家：文字 / 截图 / 语音记账 → Notion 财务库（`finance` plugin：SQLite 镜像、去重、转账成对、截图对账）；月报 cron（M3） | `finance-manager/SKILL.md` · `DESIGN.md` · `CRON.md` |
 | `activity-manager` | 活动库刷新 / 标记已用 / 状态 | `activity-manager/SKILL.md` |
 | `anime-tracker` · `bangumi-resolve` · `dmhy-search` · `episode-renamer` | 追番：Bangumi 判连载 → DMHY 磁力 → aria2（cron 02:30）；剧集重命名 | `anime-tracker/CRON.md` |
 | `phantom-consolidation` | Phantom 记忆固化（phantom-consolidate 夜间任务 / 回填时怎么读事件、记什么） | `phantom-consolidation/SKILL.md` |
@@ -30,6 +32,8 @@ for d in ~/Projects/garry-skills/*/; do n=$(basename "$d"); [ -f "$d/SKILL.md" ]
 # Hermes（按 frontmatter tags 分类）
 ~/.hermes/skills/productivity/dev-tasks  → ~/Projects/garry-skills/dev-tasks
 ~/.hermes/skills/productivity/ride-notion → ~/Projects/garry-skills/ride-notion
+~/.hermes/skills/productivity/finance-manager → ~/Projects/garry-skills/finance-manager
+# finance-manager 依赖 Hermes plugin `finance`：独立 repo ~/Projects/hermes-finance-plugin → ~/.hermes/plugins/finance，config.yaml plugins.enabled 加 finance
 ~/.hermes/skills/smart-home/miloco-tts    → ~/Projects/garry-skills/miloco-tts
 ~/.hermes/skills/smart-home/water-reminder → ~/Projects/garry-skills/water-reminder
 ~/.hermes/skills/mmx-cli                  → ~/Projects/garry-skills/mmx-cli

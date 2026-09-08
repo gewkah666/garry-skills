@@ -2,7 +2,8 @@
 name: dev-tasks
 description: >
   Run the user's daily development-task workflow on their Notion "Tasks" database
-  (default project: Peppy) via the Notion MCP server. Use to: plan the day (create
+  via the Notion MCP server (no default project — resolve it from the repo / cwd / task
+  wording, see "Which project"). Use to: plan the day (create
   today's tasks each morning); start a task (stamp start time, Status→In Progress);
   log progress into the task's Notion page; finish a task (stamp end time + duration,
   Status→Done); detect when work drifts off the task and offer to create a new one;
@@ -35,8 +36,10 @@ This skill is a **workflow**, not just CRUD. The four scenarios it serves:
 | Tasks data source **id** (`data_source_id` parent) | `3f2616ff-95e7-837b-8444-074b10e56064` |
 | Tasks **database** URL | `https://app.notion.com/p/33b616ff95e780f7891ee221b0c8605d` |
 | **Board** view (grouped by Status, filtered to Peppy) | `…?v=33b616ff95e780ff942c000c9ce8fe81` |
-| **Peppy** project page (default `Project` relation) | `https://app.notion.com/p/33b616ff95e780fbbe8dcfa7273e3c86` |
-| **Projects** data source (to target another project) | `collection://8aa616ff-95e7-8268-b269-0789ff95e092` |
+| **Projects** data source (resolve the `Project` relation here) | `collection://8aa616ff-95e7-8268-b269-0789ff95e092` |
+| **Peppy** project page (mmWave radar: `mmwave-*`, `D:\Projects\peppy`) | `https://app.notion.com/p/33b616ff95e780fbbe8dcfa7273e3c86` |
+| **Phantom** project page (Hermes / phantom-app / phantom-core / `~/Projects/phantom`) | `https://app.notion.com/p/Phantom-3b8616ff95e780b09023c078fa90bd57` |
+| **Arc** project page (posture / fitness: `arc*`, MotionCoach) | `https://app.notion.com/p/Arc-341616ff95e781e29df7f2ad58f6498b` |
 
 ## Property schema & allowed values
 
@@ -55,7 +58,8 @@ values are **JSON-encoded strings** (e.g. `"[\"…\"]"`).
   field** — set only if the user explicitly asks for a separate deadline.
 - `Tags` — multi-select JSON array. Dev options: `开发`, `测试`, `Code`, `技术方案`,
   `测试方案`, `Improvement`, `Research`, `workflow`, `automation`, `test`.
-- `Project` — relation (JSON array of page URLs). Default `["…33b616ff95e780fbbe8dcfa7273e3c86"]` (Peppy).
+- `Project` — relation (JSON array of page URLs). **Required, never defaulted** — see
+  "Which project".
 - `Parent-task` / `Sub-tasks` — relations (JSON array of task URLs).
 - `Agent` (`Benimaru`/`Shuna`/`Raphael`), `Assignee` (person id array) — only if asked.
 - `Delay` — formula, **read-only**; never write.
@@ -97,7 +101,7 @@ Concurrent tasks' blocks may overlap — that's fine.
 
 Hermes' Notion MCP can query the data source, so the active set is always a query, never a
 file: filter the Tasks data source `3f2616ff-95e7-837b-8444-074b10e56064` by
-`Status = In Progress` (and `Project` = Peppy unless told otherwise). Today's plan is the same
+`Status = In Progress` (optionally narrowed to the current project). Today's plan is the same
 query with `Completed On` on today's date. There is no second copy of the truth anywhere.
 
 ## Task granularity — keep it coarse (~30 min+)
@@ -119,7 +123,7 @@ to the minute.)
    against later. Ask for it if the task title alone is ambiguous.
 3. Batch-create them with `notion-create-pages`, parent
    `{ type: "data_source_id", data_source_id: "3f2616ff-95e7-837b-8444-074b10e56064" }`,
-   each with: `Task name`, `Status: "Not Started"`, `Project: [Peppy]`, `Completed On` = today
+   each with: `Task name`, `Status: "Not Started"`, `Project` (resolved per "Which project"), `Completed On` = today
    (date only), `Priority` if the user implies one, dev `Tags` when clearly applicable. Put the Goal/scope
    in the page `content` under a `## Goal` heading, and add an empty `## Work log` heading.
 4. Report back the created tasks as a Markdown list with clickable Notion links.
@@ -242,9 +246,22 @@ mutating. (Local day index is usually faster — check it first.)
   (archiving, completing several at once). Always report the task's clickable Notion URL.
 - Keep the Notion page and the local day index consistent; Notion wins if they disagree.
 
-## Another project
-Default is Peppy. To file under a different project, find its page URL in the Projects data
-source (`collection://8aa616ff-95e7-8268-b269-0789ff95e092`) and use that as `Project`.
+## Which project — resolve it, never default
+
+There is **no default project**. Every task must be filed under the project it actually belongs
+to, decided from evidence, in this order:
+
+1. **The user names it** ("给 Phantom 加个任务", "Peppy 的雷达…") → that project.
+2. **The repo / working directory** the work happens in: `phantom`, `phantom-app`, `phantom-core`,
+   `~/.hermes`, `~/Projects/phantom` → **Phantom**; `mmwave-*`, `D:\Projects\peppy`,
+   radar / IWRL6844 / dashboard-for-radar work → **Peppy**; `arc*`, posture / MotionCoach → **Arc**.
+3. **The task wording** (iOS app / Hermes / 御主 tooling → Phantom; 雷达 / 点云 / 固件 → Peppy;
+   健身动作 / 姿态 → Arc).
+4. Still ambiguous → **ask** before creating. Do not guess and do not fall back to Peppy.
+
+New project → look it up in the Projects data source (`collection://8aa616ff-95e7-8268-b269-0789ff95e092`)
+and use that page URL. Also fix the relation on an existing task if you notice it is filed wrong
+(2026-08: a batch of phantom-app tasks had been silently filed under Peppy).
 
 ---
 

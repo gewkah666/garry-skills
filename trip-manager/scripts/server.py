@@ -5,6 +5,7 @@ travel-guide server.py - 交互式地图本地服务器
 职责:
   * 静态服务 travel-guide/ 目录 (index.html, data.json)
   * GET /api/poi?lng=..&lat=..&radius=..&types=..   → 高德周边搜索代理 (Web 服务 API)
+  * GET /api/config                                  → {"amap_js_key": ...}（JS key 只在本地注入，不进 data.json）
 
 用法:
   python3 server.py [--port 8899] [--dir travel-guide]
@@ -21,23 +22,41 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-# 页面与数据位于 skill 根目录 travel-guide/（scripts/travel-guide/ 仅为 build_data.py 的中间产物）
+# 页面与数据位于 skill 根目录 travel-guide/（build_data.py 的输出也在这里）
 DEFAULT_DIR = HERE.parent / "travel-guide"
 AMAP_PLACE_AROUND = "https://restapi.amap.com/v3/place/around"
 
 
-def get_amap_key() -> str:
-    key = os.environ.get("AMAP_API_KEY", "")
+def _env_key(name: str) -> str:
+    key = os.environ.get(name, "")
     if key:
         return key
-    # 兜底: 从 trip-env.sh 读取
-    env_file = Path.home() / ".hermes" / "trip-env.sh"
+    env_file = Path.home() / ".hermes" / "trip-env.sh"  # 兜底: 从 trip-env.sh 读取
     if env_file.exists():
         for line in env_file.read_text().splitlines():
-            if line.startswith("export AMAP_API_KEY="):
-                key = line.split("=", 1)[1].strip().strip('"').strip("'")
-                break
-    return key
+            if line.startswith(f"export {name}="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+
+def get_amap_key() -> str:
+    return _env_key("AMAP_API_KEY")
+
+
+def get_amap_js_key() -> str:
+    return _env_key("AMAP_JS_API_KEY")
+
+
+def lan_ip() -> str:
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1))
+        return s.getsockname()[0]
+    except Exception:  # noqa: BLE001
+        return ""
+    finally:
+        s.close()
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -52,6 +71,9 @@ class Handler(SimpleHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/api/poi":
             self.handle_poi(parsed)
+            return
+        if parsed.path == "/api/config":
+            self.send_json({"amap_js_key": get_amap_js_key()})
             return
         super().do_GET()
 
@@ -125,9 +147,12 @@ def main():
 
     server = ThreadingHTTPServer(("0.0.0.0", args.port), Handler)
     print(f"✅ 行程地图服务已启动:  http://localhost:{args.port}/")
+    ip = lan_ip()
+    if ip:
+        print(f"   手机（同一 Wi-Fi）:  http://{ip}:{args.port}/?mode=trip")
     print(f"   静态目录: {args.dir}")
-    key = get_amap_key()
-    print(f"   AMAP_API_KEY: {'✓ 已配置' if key else '✗ 未配置 (周边 POI 不可用)'}")
+    print(f"   AMAP_API_KEY: {'✓' if get_amap_key() else '✗ 未配置 (周边 POI / 驾车路线不可用)'}"
+          f"   AMAP_JS_API_KEY: {'✓' if get_amap_js_key() else '✗ 未配置 (用 Leaflet 兜底)'}")
     print("   Ctrl+C 停止")
     try:
         server.serve_forever()

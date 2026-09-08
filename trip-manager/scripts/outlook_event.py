@@ -19,6 +19,9 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from trip_common import build_body, parse_graph_dt, to_graph_dt, event_to_stop, normalize_transport  # noqa: E402
+
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
 
 CACHE_DIR = Path.home() / ".cache" / "trip-manager"
@@ -200,135 +203,106 @@ def graph_request(method: str, path: str, body: dict = None) -> dict:
 
 
 def cmd_create(args):
-    """创建日历事件"""
-    # 把 +08:00 偏移量从时间中减去（Graph API 会当作 UTC 处理）
-    import re
-    def normalize_dt(s):
-        m = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})([+-]\d{2}:\d{2})$", s)
-        if m:
-            # 减去时区偏移: 2026-09-15T08:00:00+08:00 → 2026-09-15T00:00:00Z
-            from datetime import datetime, timedelta, timezone
-            base = datetime.fromisoformat(m.group(1))
-            sign = 1 if m.group(2)[0] == '+' else -1
-            hh, mm = map(int, m.group(2)[1:].split(':'))
-            offset = timedelta(hours=hh, minutes=mm) * sign
-            utc = base - offset
-            return utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return s
-
-    start_utc = normalize_dt(args.start)
-    end_utc = normalize_dt(args.end)
-    tz = "UTC"
-
-    parts = []
-    if args.body:
-        parts.append(args.body)
-    if args.origin or args.destination:
-        meta = []
-        if args.origin:
-            meta.append(f"起点：{args.origin}")
-        if args.destination:
-            meta.append(f"终点：{args.destination}")
-        if args.transport:
-            meta.append(f"交通：{args.transport}")
-        parts.append("<br>".join(meta))
-
+    """创建日历事件（body 里写结构化元数据，归档 / 地图 / 检查都靠它）"""
+    transport = normalize_transport(args.transport)
+    body_html = build_body(
+        notes=args.body, project=args.project, origin=args.origin, destination=args.destination,
+        transport=transport, dwell=args.dwell, note=args.note, guard=args.guard, cost=args.cost,
+    )
     event = {
         "subject": args.title,
-        "body": {"contentType": "HTML", "content": "<br>".join(parts)},
-        "start": {"dateTime": start_utc, "timeZone": tz},
-        "end": {"dateTime": end_utc, "timeZone": tz},
-        "location": {"displayName": args.location or ""},
+        "body": {"contentType": "HTML", "content": body_html},
+        "start": to_graph_dt(args.start),
+        "end": to_graph_dt(args.end),
+        "location": {"displayName": args.location or args.destination or ""},
         "isReminderOn": True,
+        "reminderMinutesBeforeStart": args.reminder,
     }
-    if args.transport:
-        if "飞机" in args.transport:
-            t = "✈️ 飞机"
-        elif "高铁" in args.transport or "火车" in args.transport:
-            t = "🚞 高铁"
-        elif "汽车" in args.transport:
-            t = "🚗 汽车"
-        else:
-            t = args.transport
-        event["categories"] = [t]
-
+    if transport:
+        event["categories"] = [transport]
+    if args.dry_run:
+        print(json.dumps(event, ensure_ascii=False, indent=2))
+        return
     result = graph_request("POST", "/me/events", event)
+    stop = event_to_stop(result)
     print(f"✓ 已创建事件: {result.get('subject')} (id={result.get('id')})")
-    print(f"  时间: {result.get('start', {}).get('dateTime')} → {result.get('end', {}).get('dateTime')}")
-    if args.location:
-        print(f"  地点: {args.location}")
+    print(f"  时间: {stop['start'].strftime('%Y-%m-%d %H:%M')} → {stop['end'].strftime('%H:%M') if stop['end'] else '?'} (北京)")
+    if stop["location"]:
+        print(f"  地点: {stop['location']}")
+    if stop["is_transit"]:
+        print(f"  路段: {stop['origin']} → {stop['destination']}  {stop['transport'] or ''}")
+    if stop["project"]:
+        print(f"  项目: {stop['project']}")
 
 
 def cmd_list(args):
-    """列出指定时间范围的日历事件"""
-    params = urllib.parse.urlencode({
-        "startDateTime": args.start,
-        "endDateTime": args.end,
-        "$orderby": "start/dateTime",
-        "$select": "id,subject,start,end,location,body,categories",
-    })
-    result = graph_request("GET", f"/me/calendarView?{params}")
-
-    events = result.get("value", [])
+    """列出指定时间范围的日历事件（--json 输出结构化站点，供其它脚本用）"""
+    from trip_common import fetch_events, group_by_day
+    events = fetch_events(args.start, args.end)
+    if args.json:
+        out = []
+        for day, stops in group_by_day(events).items():
+            for s in stops:
+                d = {k: v for k, v in s.items() if k not in ("start", "end")}
+                d["date"] = day
+                out.append(d)
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+        return
     if not events:
         print(f"📭 {args.start} → {args.end} 无事件")
         return
-
     print(f"📅 {args.start} → {args.end} 共 {len(events)} 个事件:\n")
-    for ev in events:
-        # Graph API 返回 UTC 字符串，转换为 Asia/Shanghai 显示
-        from datetime import datetime, timezone, timedelta
-        start_dt = ev["start"]["dateTime"]
-        display_dt = start_dt  # fallback
-        try:
-            # 处理 "2026-09-15T00:00:00.0000000" / "2026-09-15T00:00:00Z" 等
-            clean = start_dt.split(".")[0]  # 去掉小数秒
-            if clean.endswith("Z"):
-                utc_dt = datetime.fromisoformat(clean.replace("Z", "+00:00"))
-            else:
-                utc_dt = datetime.fromisoformat(clean).replace(tzinfo=timezone.utc)
-            beijing_dt = utc_dt.astimezone(timezone(timedelta(hours=8)))
-            display_dt = beijing_dt.strftime("%Y-%m-%d %H:%M (北京)")
-        except Exception:
-            display_dt = start_dt
-        print(f"  • [{display_dt}] {ev['subject']}")
-        print(f"    id: {ev['id']}")
-        if ev.get("location", {}).get("displayName"):
-            print(f"    location: {ev['location']['displayName']}")
-        if ev.get("categories"):
-            print(f"    交通方式: {', '.join(ev['categories'])}")
+    for day, stops in group_by_day(events).items():
+        print(f"── {day} ──")
+        for s in stops:
+            where = f"{s['origin']}→{s['destination']}" if s["is_transit"] else (s["location"] or "")
+            print(f"  {s['icon']} {s['time']}–{s['end_time']} {s['title']}" + (f"  @{where}" if where else ""))
+            extra = [x for x in (
+                s["transport"], f"停留 {s['dwell_min']}min" if s["dwell_min"] and not s["is_transit"] else None,
+                f"项目 {s['project']}" if s["project"] else None,
+                f"⚠️ {s['guard']}" if s["guard"] else None) if x]
+            if extra:
+                print("     " + " · ".join(extra))
+            print(f"     id: {s['id']}")
         print()
 
 
 def cmd_delete(args):
-    """删除日历事件"""
     graph_request("DELETE", f"/me/events/{args.id}")
     print(f"✓ 已删除事件 {args.id}")
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description="Outlook 行程事件 CRUD（Microsoft Graph）")
     sub = ap.add_subparsers(dest="action", required=True)
 
-    p_create = sub.add_parser("create", help="创建日历事件")
-    p_create.add_argument("--start", required=True)
-    p_create.add_argument("--end", required=True)
-    p_create.add_argument("--title", required=True)
-    p_create.add_argument("--location", help="地点")
-    p_create.add_argument("--body", help="描述")
-    p_create.add_argument("--transport", help="交通方式（飞机/高铁/汽车）")
-    p_create.add_argument("--origin", help="起点")
-    p_create.add_argument("--destination", help="终点")
-    p_create.set_defaults(func=cmd_create)
+    p = sub.add_parser("create", help="创建日历事件")
+    p.add_argument("--start", required=True, help="ISO8601，如 2026-10-01T08:00（无时区按北京时间）")
+    p.add_argument("--end", required=True)
+    p.add_argument("--title", required=True, help="建议 'Day2-1: 🏔 双桥沟'（DayN 前缀用于归档聚合）")
+    p.add_argument("--location", help="地点（景点 / 酒店）")
+    p.add_argument("--body", help="自由描述（可多行）")
+    p.add_argument("--transport", help="交通方式：飞机/高铁/汽车/船/步行（自动加 emoji）")
+    p.add_argument("--origin", help="起点（填了起点+终点即视为交通段）")
+    p.add_argument("--destination", help="终点")
+    p.add_argument("--project", help="所属多日行程，如 '川西 10.1-10.7'（归档时自动挂到同名父页）")
+    p.add_argument("--dwell", help="计划停留时长，如 90 / 1.5h")
+    p.add_argument("--note", help="要点：到了现场要照做的一条（如 '7:00 前到沟口抢早班观光车'）")
+    p.add_argument("--guard", help="时限：最晚离开 / 排队上限 / 换乘缓冲（如 '14:00 前必须离开'）")
+    p.add_argument("--cost", help="预计花费")
+    p.add_argument("--reminder", type=int, default=30, help="提前提醒分钟数（默认 30）")
+    p.add_argument("--dry-run", action="store_true", help="只打印将要提交的事件 JSON")
+    p.set_defaults(func=cmd_create)
 
-    p_list = sub.add_parser("list", help="列出时间范围事件")
-    p_list.add_argument("--start", required=True)
-    p_list.add_argument("--end", required=True)
-    p_list.set_defaults(func=cmd_list)
+    p = sub.add_parser("list", help="列出时间范围事件")
+    p.add_argument("--start", required=True)
+    p.add_argument("--end", required=True)
+    p.add_argument("--json", action="store_true", help="输出结构化 JSON")
+    p.set_defaults(func=cmd_list)
 
-    p_delete = sub.add_parser("delete", help="删除事件")
-    p_delete.add_argument("--id", required=True)
-    p_delete.set_defaults(func=cmd_delete)
+    p = sub.add_parser("delete", help="删除事件")
+    p.add_argument("--id", required=True)
+    p.set_defaults(func=cmd_delete)
 
     args = ap.parse_args()
     args.func(args)

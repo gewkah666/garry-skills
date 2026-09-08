@@ -3,7 +3,7 @@
 set -e
 
 SKILL_DIR="$HOME/.hermes/skills/garry-skills/trip-manager"
-LOG_DIR="$HOME/.cache/anime-tracker"
+LOG_DIR="$HOME/.cache/trip-manager"
 mkdir -p "$LOG_DIR"
 
 # 加载环境变量

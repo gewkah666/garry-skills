@@ -31,7 +31,7 @@ from dmhy_list import fetch_rss, parse_items  # noqa: E402
 
 ARIA2_URL = "http://localhost:6800/jsonrpc"
 ARIA2_TOKEN = "hermes_rpc_2026"
-NAS_BASE = "/Volumes/sata11-157XXXX5549/电影&电视剧/Anime"
+NAS_BASE = "/Users/garry/临时/zspace/ZSPACE/sata11-15700085549/电影&电视剧/Anime"
 CONFIG_PATH = Path.home() / ".config" / "anime-tracker" / "watchlist.yaml"
 
 

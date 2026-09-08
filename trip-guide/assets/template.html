@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="color-scheme" content="light dark">
+<title>行程手册</title>
+<style>
+:root{
+  --ink:#16130f; --ink-2:#4c443a; --muted:#8a8172; --paper:#f7f3ea; --card:#fffdf7; --line:#e2d9c8;
+  --accent:#c8451f; --gold:#b98a2f; --warn-bg:#fff1dc; --warn-ink:#8a4b00; --note-bg:#eef3ee; --note-ink:#2f4a33;
+  --ease:cubic-bezier(.16,1,.3,1); --r:16px;
+}
+[data-theme="dark"]{
+  --ink:#f1ebdd; --ink-2:#cfc4ae; --muted:#8f8672; --paper:#161310; --card:#211d17; --line:#332c22;
+  --accent:#e2643c; --gold:#d3a54a; --warn-bg:#3a2a12; --warn-ink:#f2c27a; --note-bg:#1e2a20; --note-ink:#b9d6bd;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ink:#f1ebdd; --ink-2:#cfc4ae; --muted:#8f8672; --paper:#161310; --card:#211d17; --line:#332c22;
+  --accent:#e2643c; --gold:#d3a54a; --warn-bg:#3a2a12; --warn-ink:#f2c27a; --note-bg:#1e2a20; --note-ink:#b9d6bd; } }
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:"PingFang SC","Hiragino Sans GB","Noto Sans SC",-apple-system,sans-serif;background:var(--paper);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3,.serif{font-family:"Songti SC","Noto Serif SC","Source Han Serif SC",Georgia,serif}
+a{color:var(--accent)}
+button{font:inherit;color:inherit}
+[hidden]{display:none!important}
+.wrap{max-width:820px;margin:0 auto;padding:0 clamp(16px,4vw,32px)}
+
+/* 封面 */
+.cover{min-height:min(78vh,620px);display:flex;flex-direction:column;justify-content:flex-end;padding:calc(56px + env(safe-area-inset-top)) clamp(20px,6vw,64px) 48px;position:relative;color:#f7f3ea;overflow:hidden;
+  background:radial-gradient(900px 420px at 85% -10%, rgba(185,138,47,.28), transparent 60%),radial-gradient(700px 360px at 5% 110%, rgba(200,69,31,.22), transparent 60%),linear-gradient(178deg,#1d1a15 0%,#2c2418 55%,#402f1c 100%)}
+.cover.has-img{background-size:cover;background-position:center}
+.cover.has-img::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,16,10,.15),rgba(20,16,10,.85))}
+.cover>*{position:relative}
+.cover .kicker{letter-spacing:.45em;font-size:12px;color:var(--gold);text-transform:uppercase;margin-bottom:14px}
+.cover h1{font-size:clamp(38px,9vw,88px);font-weight:900;line-height:1.05;letter-spacing:.02em}
+.cover .sub{margin-top:14px;font-size:15px;color:#cfc4ae;max-width:560px}
+.cover .meta{display:flex;gap:22px;flex-wrap:wrap;margin-top:28px;font-size:12px;color:#a89a80}
+.cover .meta b{display:block;color:#f7f3ea;font-size:16px;margin-top:2px;font-weight:600}
+.peaks{position:absolute;left:0;right:0;bottom:0;height:38%;width:100%;opacity:.55;pointer-events:none}
+
+/* 章节导航 */
+.toc{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.toc .in{max-width:820px;margin:0 auto;display:flex;align-items:center;gap:6px;padding:8px clamp(12px,3vw,24px);overflow-x:auto;scrollbar-width:none}
+.toc .in::-webkit-scrollbar{display:none}
+.toc a{flex:0 0 auto;text-decoration:none;color:var(--ink-2);font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+.toc a.on{border-color:var(--ink);color:var(--ink);font-weight:600}
+.toc .theme{margin-left:auto;flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:999px;width:34px;height:34px;cursor:pointer}
+@media (min-width:1100px){
+  .toc{position:fixed;top:0;left:0;bottom:0;width:200px;border:0;border-right:1px solid var(--line);background:var(--paper)}
+  .toc .in{flex-direction:column;align-items:stretch;padding:28px 16px;overflow:visible;height:100%}
+  .toc a{white-space:normal;padding:8px 12px;border-radius:10px}
+  .toc .theme{margin:auto 0 0 0}
+  body{padding-left:200px}
+}
+
+section.ch{padding:52px 0 8px}
+.ch-k{letter-spacing:.35em;font-size:11px;color:var(--accent);margin-bottom:6px}
+.ch-t{font-size:clamp(26px,5vw,38px);font-weight:800;margin-bottom:22px;line-height:1.2}
+.ch-t small{font-size:14px;color:var(--muted);font-weight:400;margin-left:10px;font-family:inherit}
+h3.sub{font-size:17px;margin:26px 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:12px}
+.grid>*,.card,.stop>*{min-width:0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{font-size:11.5px;padding:3px 9px;border-radius:999px;background:var(--paper);border:1px solid var(--line);color:var(--ink-2)}
+.chip.pending,.badge.pending{background:var(--warn-bg);color:var(--warn-ink);border-color:transparent}
+.badge{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--note-bg);color:var(--note-ink);vertical-align:middle;margin-left:6px}
+.badge.opt{background:var(--paper);color:var(--muted);border:1px solid var(--line)}
+.muted{color:var(--muted);font-size:13px}
+.src{font-size:11.5px;color:var(--muted);margin-top:8px}
+.src::before{content:"来源 · "}
+.btn{font-size:13px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.btn.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.img{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:10px;margin-bottom:10px;background:var(--line)}
+
+/* 出行框架 */
+.legs .card{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.legs .type{font-size:22px}
+.legs b{font-size:15px}
+.legs .t{font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:13px}
+
+/* 每日行程 */
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;padding:8px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);cursor:pointer;text-align:center;line-height:1.25;font-size:13px}
+.tab small{display:block;color:var(--muted);font-size:11px}
+.tab.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tab.on small{color:var(--muted)}
+.tab.today{box-shadow:0 0 0 2px var(--gold)}
+.day{display:none;animation:enter .4s var(--ease) both}
+.day.on{display:block}
+@keyframes enter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.day-head h3{font-size:clamp(22px,4.5vw,30px);font-weight:800;line-height:1.25}
+.day-head .meta{color:var(--muted);font-size:13px;margin-top:4px}
+.day-head .route{margin-top:8px;color:var(--accent);font-weight:600;font-size:14px}
+.day-head .summary{margin-top:10px;color:var(--ink-2);font-size:14.5px;max-width:700px}
+.mini{margin:18px 0 8px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.mini svg{width:100%;height:150px;display:block}
+.mini .cap{font-size:11.5px;color:var(--muted);margin-top:6px}
+.stops{display:flex;flex-direction:column;gap:0;margin-top:14px}
+.stop{display:grid;grid-template-columns:54px 1fr;gap:10px}
+.stop .t{text-align:right;padding-top:14px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1.5}
+.stop .t b{display:block;color:var(--ink);font-size:15px}
+.stop .card{position:relative}
+.stop .card.transit{background:transparent;border-style:dashed}
+.stop .name{font-size:16px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.stop .cap{font-size:12.5px;color:var(--muted);margin-top:2px}
+.note{margin-top:10px;font-size:13.5px;padding:8px 10px;border-radius:10px;background:var(--note-bg);color:var(--note-ink)}
+.guard{margin-top:8px;font-size:13.5px;padding:8px 10px;border-radius:10px;background:var(--warn-bg);color:var(--warn-ink);font-weight:500}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+details.more{margin-top:10px}
+details.more summary{cursor:pointer;font-size:13px;color:var(--accent);list-style:none}
+details.more summary::before{content:"▸ ";}
+details.more[open] summary::before{content:"▾ ";}
+.rich{margin-top:8px;font-size:13.5px;color:var(--ink-2)}
+.rich h4{font-size:14px;margin:12px 0 6px;color:var(--ink)}
+.rich li{margin-left:18px;margin-bottom:4px}
+.rich li.n{list-style:decimal}
+.transfer{grid-column:2;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);padding:6px 0 6px 14px;border-left:2px dashed var(--line);margin-left:16px}
+.photo{margin-top:22px}
+.photo .card{border-left:3px solid var(--gold)}
+.photo .card b{display:block;font-size:14px}
+.fallback{margin-top:14px;font-size:13.5px;padding:10px 12px;border-radius:10px;border:1px dashed var(--line);color:var(--ink-2)}
+.fallback::before{content:"备选 · ";color:var(--accent);font-weight:600}
+
+/* 景点 / 餐厅 */
+.sight h4,.rest h4{font-size:16px;font-weight:700}
+.kv{margin-top:8px;font-size:13px;color:var(--ink-2);display:grid;grid-template-columns:auto 1fr;gap:3px 10px}
+.kv span{min-width:0;overflow-wrap:anywhere}
+.kv span:nth-child(odd){color:var(--muted);white-space:nowrap}
+.why{margin-top:8px;font-size:13.5px;color:var(--ink)}
+.primer li{margin-left:18px;font-size:14px;margin-bottom:4px}
+
+/* 清单 */
+.list{display:flex;flex-direction:column;gap:6px}
+.list label{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:12px;cursor:pointer;font-size:14px}
+.list input{margin-top:4px;accent-color:var(--accent)}
+.list label.done{opacity:.55;text-decoration:line-through}
+.list small{display:block;color:var(--muted);font-size:12px;text-decoration:none}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:640px){.two{grid-template-columns:1fr}}
+
+/* 须知 / 语言 */
+details.fold{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:10px;padding:0 16px}
+details.fold summary{cursor:pointer;padding:14px 0;font-weight:700;font-size:15px;list-style:none;display:flex;align-items:center;gap:8px}
+details.fold summary::after{content:"+";margin-left:auto;color:var(--muted)}
+details.fold[open] summary::after{content:"−"}
+details.fold .body{padding:0 0 14px}
+details.fold .topic{padding:10px 0;border-top:1px solid var(--line)}
+details.fold .topic b{display:block;font-size:14px;margin-bottom:3px}
+details.fold .topic p{font-size:13.5px;color:var(--ink-2)}
+.lang{display:grid;grid-template-columns:1fr auto 1fr;gap:6px 12px;font-size:14px;align-items:baseline}
+.lang .say{color:var(--muted);font-size:12.5px}
+
+footer{padding:40px 0 calc(40px + env(safe-area-inset-bottom));color:var(--muted);font-size:12px;line-height:1.8}
+footer ul{margin:8px 0 0 18px}
+@media (prefers-reduced-motion:reduce){.day{animation:none}}
+@media print{.toc,.acts,.theme{display:none!important}.day{display:block!important}body{padding-left:0;background:#fff;color:#000}.cover{min-height:auto;padding:40px}}
+</style>
+</head>
+<body>
+<header class="cover" id="cover">
+  <svg class="peaks" viewBox="0 0 1200 300" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0 300 L120 190 L220 240 L360 120 L470 200 L600 90 L720 180 L840 130 L960 210 L1080 150 L1200 220 L1200 300 Z" fill="rgba(247,243,234,.08)"/>
+    <path d="M0 300 L150 230 L300 260 L420 170 L560 240 L700 150 L830 220 L980 180 L1200 260 L1200 300 Z" fill="rgba(247,243,234,.06)"/>
+  </svg>
+  <div class="kicker" id="c-kicker">ITINERARY</div>
+  <h1 id="c-title">行程</h1>
+  <div class="sub" id="c-sub"></div>
+  <div class="meta" id="c-meta"></div>
+</header>
+
+<nav class="toc" id="toc"><div class="in" id="toc-in"></div></nav>
+
+<main class="wrap" id="main"></main>
+
+<footer class="wrap" id="foot"></footer>
+
+<script>
+const GUIDE = /*__GUIDE_JSON__*/null;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rich = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+const nz = v => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length);
+const fmtDate = s => { if (!s) return ''; const d = new Date(s); return isNaN(d) ? s : `${d.getMonth()+1}月${d.getDate()}日`; };
+const wk = s => { const d = new Date(s); return isNaN(d) ? '' : '周' + '日一二三四五六'[d.getDay()]; };
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const nav = s => s.coords ? `https://uri.amap.com/navigation?to=${s.coords.lng},${s.coords.lat},${encodeURIComponent(s.place||s.name)}&mode=car&policy=1&src=trip-guide&coordinate=gaode&callnative=1` : `https://uri.amap.com/search?keyword=${encodeURIComponent(s.place||s.name)}&src=trip-guide&callnative=1`;
+const apple = s => s.coords ? `https://maps.apple.com/?daddr=${s.coords.lat},${s.coords.lng}&q=${encodeURIComponent(s.place||s.name)}&dirflg=d` : '';
+const pend = st => st === 'pending' ? '<span class="badge pending">待确认</span>' : '';
+const store = { get(k){ try { return localStorage.getItem(k); } catch { return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch {} } };
+const KEY = 'trip-guide:' + (GUIDE?.meta?.title || '') + ':' + (GUIDE?.meta?.start || '');
+
+function richBlock(lines) {
+  if (!lines?.length) return '';
+  const out = [];
+  let open = false;
+  for (const ln of lines) {
+    const i = String(ln).indexOf('|'); const tag = i < 0 ? 'bul' : ln.slice(0, i), txt = i < 0 ? ln : ln.slice(i + 1);
+    if (tag === 'h2' || tag === 'h3') { if (open) { out.push('</ul>'); open = false; } out.push(`<h4>${rich(txt)}</h4>`); }
+    else { if (!open) { out.push('<ul>'); open = true; } out.push(`<li class="${tag === 'num' ? 'n' : ''}">${rich(txt)}</li>`); }
+  }
+  if (open) out.push('</ul>');
+  return `<div class="rich">${out.join('')}</div>`;
+}
+
+function miniRoute(day) {
+  const pts = day.stops.filter(s => s.coords).map(s => ({...s.coords, s}));
+  if (pts.length < 2) return '';
+  const lngs = pts.map(p => p.lng), lats = pts.map(p => p.lat);
+  const W = 600, H = 150, P = 26;
+  const spanX = Math.max(1e-6, Math.max(...lngs) - Math.min(...lngs)), spanY = Math.max(1e-6, Math.max(...lats) - Math.min(...lats));
+  const k = Math.min((W - 2*P) / spanX, (H - 2*P) / (spanY * 1.2));
+  const ox = (W - spanX * k) / 2, oy = (H - spanY * 1.2 * k) / 2;
+  const xy = p => [ox + (p.lng - Math.min(...lngs)) * k, H - (oy + (p.lat - Math.min(...lats)) * 1.2 * k)];
+  const path = pts.map((p, i) => (i ? 'L' : 'M') + xy(p).map(v => v.toFixed(1)).join(',')).join(' ');
+  const dots = pts.map((p, i) => { const [x, y] = xy(p); const lab = esc(p.s.place || p.s.name).slice(0, 8);
+    const anchor = x > W * .7 ? 'end' : (x < W * .3 ? 'start' : 'middle'); const dy = y < 40 ? 18 : -10;
+    return `<circle cx="${x}" cy="${y}" r="7" fill="var(--accent)" stroke="var(--card)" stroke-width="2"/><text x="${x}" y="${y+3.5}" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">${i+1}</text><text x="${x}" y="${y+dy}" font-size="11" fill="var(--ink-2)" text-anchor="${anchor}">${lab}</text>`; }).join('');
+  const km = day.stops.reduce((a, s) => a + (s.transfer?.km || 0), 0);
+  return `<div class="mini"><svg viewBox="0 0 ${W} ${H}" aria-label="路线示意"><path d="${path}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-dasharray="6 5" stroke-linejoin="round"/>${dots}</svg><div class="cap">离线示意路线（按坐标手绘，不按道路）${km ? ` · 驾车约 ${Math.round(km)} km` : ''}</div></div>`;
+}
+
+function stopCard(s, day, idx) {
+  const done = store.get(`${KEY}:done:${day.date}:${s.time}:${s.name}`) === '1';
+  const chips = [];
+  if (s.is_transit && s.transport) chips.push(esc(s.transport));
+  if (!s.is_transit && s.dwell_min) chips.push(`⏱ ${s.dwell_min} 分钟`);
+  if (s.cost) chips.push(`💰 ${esc(s.cost)}`);
+  if (s.status === 'pending') chips.push('<span class="chip pending">坐标待确认</span>');
+  const tr = s.transfer && idx < day.stops.length - 1 && !s.is_transit
+    ? `<div class="transfer">🚗 到下一站约 ${s.transfer.minutes} 分钟${s.transfer.km ? ` · ${s.transfer.km} km` : ''}</div>` : '';
+  return `<div class="stop"><div class="t"><b>${esc(s.time || '—')}</b>${esc(s.end_time || '')}</div>
+    <div class="card ${s.is_transit ? 'transit' : ''}" style="${done ? 'opacity:.55' : ''}">
+      <div class="name">${esc(s.icon || '📍')} ${esc(s.name)}</div>
+      ${s.is_transit && !/→|->/.test(s.name) ? `<div class="cap">${esc(s.origin || '')} → ${esc(s.destination || '')}</div>` : (s.caption ? `<div class="cap">${esc(s.caption)}</div>` : '')}
+      ${chips.length ? `<div class="chips">${chips.map(c => c.startsWith('<span') ? c : `<span class="chip">${c}</span>`).join('')}</div>` : ''}
+      ${s.note ? `<div class="note">💡 ${rich(s.note)}</div>` : ''}
+      ${s.guard ? `<div class="guard">⚠️ ${rich(s.guard)}</div>` : ''}
+      ${s.details?.length ? `<details class="more"><summary>详情</summary>${richBlock(s.details)}</details>` : ''}
+      ${s.source ? `<div class="src">${esc(s.source)}</div>` : ''}
+      <div class="acts">
+        ${s.is_transit && !s.coords ? '' : `<a class="btn p" href="${nav(s)}">🧭 高德</a>`}
+        ${apple(s) ? `<a class="btn" href="${apple(s)}">🍎 Apple</a>` : ''}
+        ${s.is_transit ? '' : `<button class="btn" data-done="${esc(day.date)}|${esc(s.time)}|${esc(s.name)}">${done ? '已到' : '✓ 到了'}</button>`}
+      </div>
+    </div></div>${tr}`;
+}
+
+function renderDays(days) {
+  const today = todayStr();
+  const want = decodeURIComponent(location.hash.slice(1));
+  let idx = days.findIndex(d => want && (d.day === want || d.date === want));
+  if (idx < 0) idx = days.findIndex(d => d.date === today); if (idx < 0) idx = days.findIndex(d => d.date > today); if (idx < 0) idx = 0;
+  const tabs = days.map((d, i) => `<div class="tab ${i === idx ? 'on' : ''} ${d.date === today ? 'today' : ''}" data-i="${i}">${esc(d.icon || '📍')} ${esc(d.day || 'D' + (i+1))}<small>${esc(fmtDate(d.date))} ${wk(d.date)}</small></div>`).join('');
+  const panels = days.map((d, i) => `<div class="day ${i === idx ? 'on' : ''}" data-i="${i}">
+    <div class="day-head"><h3>${esc(d.icon || '')} ${esc(d.day || '')} · ${esc(d.title)}</h3>
+      <div class="meta">${esc(fmtDate(d.date))} ${wk(d.date)}${d.area ? ' · ' + esc(d.area) : ''}${d.transport ? ' · ' + esc(d.transport) : ''}${(n => n ? ` · ${n} 站` : '')(d.stops.filter(s => !s.is_transit).length)}</div>
+      ${d.route?.length ? `<div class="route">${d.route.map(esc).join(' → ')}</div>` : ''}
+      ${d.summary ? `<div class="summary">${rich(d.summary)}</div>` : ''}
+    </div>
+    ${miniRoute(d)}
+    <div class="stops">${d.stops.map((s, k) => stopCard(s, d, k)).join('')}</div>
+    ${d.photo?.length ? `<div class="photo"><h3 class="sub">📸 今天怎么拍</h3><div class="grid">${d.photo.map(p => `<div class="card"><b>${esc(p.when || '')}</b><div class="muted">${esc(p.where || '')}</div><div style="margin-top:6px;font-size:13.5px">${rich(p.how || '')}</div></div>`).join('')}</div></div>` : ''}
+    ${d.fallback ? `<div class="fallback">${rich(d.fallback)}</div>` : ''}
+    ${d.notion_url ? `<div class="src" style="margin-top:14px"><a href="${esc(d.notion_url)}" target="_blank">Notion 页 ↗</a></div>` : ''}
+  </div>`).join('');
+  return `<section class="ch" id="days"><div class="ch-k">01</div><h2 class="ch-t">每日行程<small>${days.length} 天</small></h2><div class="tabs" id="tabs">${tabs}</div><div id="panels">${panels}</div></section>`;
+}
+
+function renderLegs(legs, stays) {
+  if (!nz(legs) && !nz(stays)) return '';
+  const L = (legs || []).map(l => `<div class="card"><div class="type">${esc((l.type || '🚗').split(' ')[0])}</div><div><b>${esc(l.from)} → ${esc(l.to)}</b>${pend(l.status)}<div class="t">${esc(l.depart?.replace('T', ' ') || '')}${l.arrive ? ' → ' + esc(l.arrive.replace('T', ' ')) : ''}${l.ref ? ' · ' + esc(l.ref) : ''}</div>${l.note ? `<div class="muted">${rich(l.note)}</div>` : ''}</div></div>`).join('');
+  const S = (stays || []).map(s => `<div class="card"><div class="type">🛏</div><div><b>${esc(s.name || '待定')}</b>${pend(s.status)}<div class="t">${esc(fmtDate(s.from))}${s.to ? ' → ' + esc(fmtDate(s.to)) : ''}${s.area ? ' · ' + esc(s.area) : ''}</div>${s.address ? `<div class="muted">${esc(s.address)}</div>` : ''}${s.note ? `<div class="muted">${rich(s.note)}</div>` : ''}</div></div>`).join('');
+  return `<section class="ch legs" id="legs"><div class="ch-k">出行</div><h2 class="ch-t">交通与住宿</h2>${L ? `<div class="grid">${L}</div>` : ''}${S ? `<h3 class="sub">住宿</h3><div class="grid">${S}</div>` : ''}</section>`;
+}
+
+function kv(pairs) { const f = pairs.filter(([, v]) => nz(v)); return f.length ? `<div class="kv">${f.map(([k, v]) => `<span>${k}</span><span>${rich(v)}</span>`).join('')}</div>` : ''; }
+function img(u, alt) { return u ? `<img class="img" src="${esc(u)}" alt="${esc(alt || '')}" loading="lazy">` : ''; }
+
+function renderSights(sights) {
+  if (!nz(sights)) return '';
+  const card = s => `<div class="card sight">${img(s.image, s.name)}<h4>${esc(s.name)}${s.status === 'optional' ? '<span class="badge opt">备选</span>' : (s.day ? `<span class="badge">${esc(s.day)}</span>` : '')}</h4>${s.local_name ? `<div class="muted">${esc(s.local_name)}</div>` : ''}${s.why ? `<div class="why">${rich(s.why)}</div>` : ''}${kv([['开放', s.hours], ['建议', s.duration], ['最佳', s.best_time], ['门票', s.ticket], ['注意', s.caution], ['位置', s.area]])}<div class="acts"><a class="btn" href="${nav(s)}">🧭 导航</a></div>${s.source ? `<div class="src">${esc(s.source)}</div>` : ''}</div>`;
+  const sch = sights.filter(s => s.status !== 'optional'), opt = sights.filter(s => s.status === 'optional');
+  return `<section class="ch" id="sights"><div class="ch-k">02</div><h2 class="ch-t">景点<small>${sights.length} 处</small></h2><div class="grid">${sch.map(card).join('')}</div>${opt.length ? `<h3 class="sub">备选</h3><div class="grid">${opt.map(card).join('')}</div>` : ''}</section>`;
+}
+
+function renderFood(food) {
+  if (!food || !(nz(food.primer) || nz(food.snacks) || nz(food.restaurants) || nz(food.chains))) return '';
+  const rest = r => `<div class="card rest">${img(r.image, r.name)}<h4>${esc(r.name)}${r.day ? `<span class="badge">${esc(r.day)}</span>` : ''}</h4><div class="chips">${[r.cuisine, r.scene, r.price].filter(nz).map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>${kv([['招牌', r.dishes], ['营业', r.hours], ['位置', r.area]])}<div class="acts"><a class="btn" href="${nav(r)}">🧭 导航</a></div>${r.source ? `<div class="src">${esc(r.source)}</div>` : ''}</div>`;
+  return `<section class="ch" id="food"><div class="ch-k">03</div><h2 class="ch-t">美食</h2>
+    ${nz(food.primer) ? `<div class="card"><b>点单前先知道</b><ul class="primer" style="margin-top:8px">${food.primer.map(p => `<li>${rich(p)}</li>`).join('')}</ul></div>` : ''}
+    ${nz(food.snacks) ? `<h3 class="sub">小吃</h3><div class="grid">${food.snacks.map(s => `<div class="card"><h4>${esc(s.name)}</h4>${kv([['是什么', s.what], ['哪里有', s.where], ['怎么点', s.how]])}</div>`).join('')}</div>` : ''}
+    ${nz(food.restaurants) ? `<h3 class="sub">值得专程去</h3><div class="grid">${food.restaurants.map(rest).join('')}</div>` : ''}
+    ${nz(food.chains) ? `<h3 class="sub">兜底连锁</h3><div class="grid">${food.chains.map(c => `<div class="card"><h4>${esc(c.name)}</h4><div class="muted">${rich(c.why || '')}</div></div>`).join('')}</div>` : ''}
+  </section>`;
+}
+
+function renderExp(items) {
+  if (!nz(items)) return '';
+  const groups = {}; items.forEach(e => (groups[e.category || '其它'] ||= []).push(e));
+  return `<section class="ch" id="exp"><div class="ch-k">04</div><h2 class="ch-t">体验</h2>${Object.entries(groups).map(([g, list]) => `<h3 class="sub">${esc(g)}</h3><div class="grid">${list.map(e => `<div class="card"><h4>${esc(e.name)}</h4><div class="why">${rich(e.what || '')}</div>${kv([['在哪', e.where], ['何时', e.when], ['费用', e.cost], ['预约', e.book]])}${e.source ? `<div class="src">${esc(e.source)}</div>` : ''}</div>`).join('')}</div>`).join('')}</section>`;
+}
+
+function renderShop(items) {
+  if (!nz(items)) return '';
+  return `<section class="ch" id="shop"><div class="ch-k">05</div><h2 class="ch-t">购物与伴手礼</h2><div class="grid">${items.map(s => `<div class="card"><h4>${esc(s.name)}${s.souvenir ? '<span class="badge">伴手礼</span>' : ''}</h4><div class="chips">${[s.type, s.area].filter(nz).map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>${kv([['买什么', s.what], ['注意', s.note]])}${s.source ? `<div class="src">${esc(s.source)}</div>` : ''}</div>`).join('')}</div></section>`;
+}
+
+function renderPrep(prep) {
+  if (!prep || !(nz(prep.essentials) || nz(prep.confirm))) return '';
+  const list = (items, grp) => `<div class="list">${items.map((it, i) => { const k = `${KEY}:prep:${grp}:${i}`; const on = store.get(k) === '1';
+    return `<label class="${on ? 'done' : ''}"><input type="checkbox" data-k="${k}" ${on ? 'checked' : ''}><span>${rich(it.text || it)}${it.why || it.when ? `<small>${esc(it.why || it.when)}</small>` : ''}</span></label>`; }).join('')}</div>`;
+  return `<section class="ch" id="prep"><div class="ch-k">06</div><h2 class="ch-t">出发前<small>勾选状态保存在本机</small></h2><div class="two"><div><h3 class="sub">必带</h3>${list(prep.essentials || [], 'e')}</div><div><h3 class="sub">提前确认 / 预订</h3>${list(prep.confirm || [], 'c')}</div></div></section>`;
+}
+
+function renderNotes(notes) {
+  const folds = [['weather', '🌤 天气与穿衣'], ['culture', '🙏 文化与礼仪'], ['transport', '🚗 当地交通'], ['safety', '🩺 安全与健康'], ['payment', '💳 支付与通讯']].filter(([k]) => nz(notes?.[k]));
+  if (!folds.length) return '';
+  return `<section class="ch" id="notes"><div class="ch-k">07</div><h2 class="ch-t">当地须知</h2>${folds.map(([k, t], i) => `<details class="fold" ${i === 0 ? 'open' : ''}><summary>${t}</summary><div class="body">${notes[k].map(n => `<div class="topic"><b>${esc(n.title)}</b><p>${rich(n.text)}</p></div>`).join('')}</div></details>`).join('')}</section>`;
+}
+
+function renderLang(groups) {
+  if (!nz(groups)) return '';
+  return `<section class="ch" id="lang"><div class="ch-k">08</div><h2 class="ch-t">语言</h2>${groups.map((g, i) => `<details class="fold" ${i === 0 ? 'open' : ''}><summary>${esc(g.group)}</summary><div class="body"><div class="lang">${(g.items || []).map(it => `<span>${esc(it.term)}</span><span class="say">${esc(it.say || '')}</span><span>${esc(it.meaning || '')}</span>`).join('')}</div></div></details>`).join('')}</section>`;
+}
+
+function init() {
+  const g = GUIDE; if (!g) return;
+  const m = g.meta || {};
+  document.getElementById('c-kicker').textContent = m.kicker || 'ITINERARY';
+  document.getElementById('c-title').textContent = m.title || '行程';
+  const nights = m.start && m.end ? Math.round((new Date(m.end) - new Date(m.start)) / 864e5) : 0;
+  document.getElementById('c-sub').textContent = [m.destination, m.vehicle].filter(nz).join(' · ');
+  document.getElementById('c-meta').innerHTML = [['日期', `${fmtDate(m.start)} – ${fmtDate(m.end)}`], ['时长', nights ? `${nights + 1} 天 / ${nights} 晚` : ''], ['同行', m.travelers], ['节奏', m.pace]].filter(([, v]) => nz(v)).map(([k, v]) => `<div>${k}<b>${esc(v)}</b></div>`).join('');
+  if (m.cover) { const c = document.getElementById('cover'); c.classList.add('has-img'); c.style.backgroundImage = `url("${m.cover}")`; }
+
+  document.getElementById('main').innerHTML = [renderLegs(g.legs, g.stays), renderDays(g.days || []), renderSights(g.sights), renderFood(g.food), renderExp(g.experiences), renderShop(g.shopping), renderPrep(g.prep), renderNotes(g.notes), renderLang(g.language)].join('');
+
+  const secs = [...document.querySelectorAll('section.ch')];
+  const toc = document.getElementById('toc-in');
+  toc.innerHTML = secs.map(s => `<a href="#${s.id}" data-id="${s.id}">${esc(s.querySelector('.ch-t').childNodes[0].textContent.trim())}</a>`).join('') + '<button class="theme" id="theme" title="切换深浅色">◐</button>';
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) toc.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.dataset.id === e.target.id)); }), { rootMargin: '-30% 0px -60% 0px' });
+  secs.forEach(s => io.observe(s));
+
+  const saved = store.get(KEY + ':theme'); if (saved) document.documentElement.dataset.theme = saved;
+  document.getElementById('theme').onclick = () => { const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); const nx = cur === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = nx; store.set(KEY + ':theme', nx); };
+
+  document.getElementById('tabs')?.addEventListener('click', e => { const t = e.target.closest('.tab'); if (!t) return;
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t)); document.querySelectorAll('.day').forEach(p => p.classList.toggle('on', p.dataset.i === t.dataset.i));
+    history.replaceState(null, '', '#' + encodeURIComponent((g.days[+t.dataset.i].day || g.days[+t.dataset.i].date))); });
+  document.getElementById('main').addEventListener('click', e => { const b = e.target.closest('[data-done]'); if (!b) return;
+    const k = `${KEY}:done:${b.dataset.done.replace(/\|/g, ':')}`; const on = store.get(k) === '1'; store.set(k, on ? '0' : '1'); b.textContent = on ? '✓ 到了' : '已到'; b.closest('.card').style.opacity = on ? '' : '.55'; });
+  document.getElementById('main').addEventListener('change', e => { const c = e.target.closest('input[data-k]'); if (!c) return; store.set(c.dataset.k, c.checked ? '1' : '0'); c.closest('label').classList.toggle('done', c.checked); });
+
+  document.getElementById('foot').innerHTML = `${nz(m.sources) ? `来源<ul>${m.sources.map(s => `<li>${esc(s)}</li>`).join('')}</ul>` : ''}<div style="margin-top:10px">营业时间、票价、管控会变，出发前按各卡片来源再核一遍 · 生成 ${esc(m.generated_at || '')}${m.built_at ? ' · 渲染 ' + esc(m.built_at) : ''} · trip-guide</div>`;
+}
+init();
+</script>
+</body>
+</html>

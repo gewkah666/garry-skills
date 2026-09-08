@@ -9,8 +9,6 @@ trip_modify.py - 修改行程（自动路由未来/过去）
 import argparse
 import json
 import os
-import re
-import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -21,41 +19,21 @@ from typing import Optional
 
 SKILL_DIR = Path(__file__).parent
 sys.path.insert(0, str(SKILL_DIR))
-from outlook_event import graph_request, get_access_token  # noqa: E402
-import notion_sync  # noqa: E402
+from outlook_event import graph_request  # noqa: E402
+from trip_common import TZ_CN, fetch_events, parse_graph_dt as parse_beijing_dt, to_graph_dt, normalize_transport  # noqa: E402
 
 NOTION_DB_ID = "747e9f3b-0bbf-4f03-b678-7fc62a093790"
 
 
 def get_today_utc8():
     """返回今天 00:00 (Asia/Shanghai)"""
-    tz_china = timezone(timedelta(hours=8))
-    return datetime.now(tz_china).replace(hour=0, minute=0, second=0, microsecond=0)
-
-
-def parse_beijing_dt(date_str: str) -> datetime:
-    """解析 UTC 时间字符串 → 北京时间 datetime"""
-    clean = date_str.split(".")[0]
-    if clean.endswith("Z"):
-        utc_dt = datetime.fromisoformat(clean.replace("Z", "+00:00"))
-    else:
-        utc_dt = datetime.fromisoformat(clean).replace(tzinfo=timezone.utc)
-    return utc_dt.astimezone(timezone(timedelta(hours=8)))
+    return datetime.now(TZ_CN).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def find_outlook_event_by_title(keyword: str, days_ahead: int = 365) -> Optional[dict]:
-    """根据关键词查找未来 Outlook 日历事件"""
-    token = get_access_token()
-    now = datetime.now(timezone(timedelta(hours=8)))
-    end = now + timedelta(days=days_ahead)
-    params = urllib.parse.urlencode({
-        "startDateTime": now.isoformat(),
-        "endDateTime": end.isoformat(),
-        "$orderby": "start/dateTime",
-        "$select": "id,subject,start,end,location,body,categories",
-    })
-    result = graph_request("GET", f"/me/calendarView?{params}")
-    for ev in result.get("value", []):
+    """根据关键词查找未来 Outlook 行程事件（其它 skill 的事件已过滤）"""
+    now = datetime.now(TZ_CN)
+    for ev in fetch_events(now.isoformat(), (now + timedelta(days=days_ahead)).isoformat()):
         if keyword.lower() in ev.get("subject", "").lower():
             return ev
     return None
@@ -98,16 +76,15 @@ def modify_outlook_event(event_id: str, updates: dict):
     if "subject" in updates:
         payload["subject"] = updates["subject"]
     if "start" in updates:
-        payload["start"] = updates["start"]
+        payload["start"] = to_graph_dt(updates["start"])
     if "end" in updates:
-        payload["end"] = updates["end"]
+        payload["end"] = to_graph_dt(updates["end"])
     if "location" in updates:
         payload["location"] = {"displayName": updates["location"]}
     if "body" in updates:
         payload["body"] = {"contentType": "HTML", "content": updates["body"]}
     if "transport" in updates:
-        # 删除旧 categories，再加新的
-        payload["categories"] = [updates["transport"]]
+        payload["categories"] = [normalize_transport(updates["transport"]) or updates["transport"]]
 
     graph_request("PATCH", f"/me/events/{event_id}", payload)
     print(f"✓ Outlook 事件 {event_id[:20]}... 已更新")
@@ -201,8 +178,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("keyword", help="行程关键词（如：'北京出差'、'Day2'）")
     ap.add_argument("--subject", help="新标题")
-    ap.add_argument("--start", help="新开始时间 ISO8601")
-    ap.add_argument("--end", help="新结束时间 ISO8601")
+    ap.add_argument("--start", help="新开始时间，如 2026-10-01T08:00（无时区按北京时间）")
+    ap.add_argument("--end", help="新结束时间")
     ap.add_argument("--location", help="新地点")
     ap.add_argument("--body", help="新描述 / Notion 备注")
     ap.add_argument("--transport", help="新交通方式（飞机/高铁/汽车）")

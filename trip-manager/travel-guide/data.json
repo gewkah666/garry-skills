@@ -1,567 +1,780 @@
 {
   "trip": {
     "title": "川西 10.1-10.7",
-    "start_date": "2026-10-01",
-    "end_date": "2026-10-06",
-    "amap_key": "c392b212e570e922f258a7adbdd16315",
+    "start_date": "2026-09-29",
+    "end_date": "2026-10-07",
+    "generated_at": "2026-09-07 16:19",
     "days": [
       {
-        "id": "3c7616ff-95e7-81ee-8653-cb0808fe0970",
+        "id": null,
+        "day": "Day0",
+        "date": "2026-09-29",
+        "title": "杭州萧山机场→成都双流机场",
+        "full_title": "Day0 - 杭州萧山机场→成都双流机场",
+        "icon": "✈️",
+        "transport": "✈️ 飞机",
+        "route": [
+          "杭州萧山机场",
+          "成都双流机场"
+        ],
+        "project": null,
+        "stops": [
+          {
+            "time": "20:50",
+            "end_time": "23:55",
+            "icon": "✈️",
+            "name": "杭州萧山机场→成都双流机场",
+            "is_transit": true,
+            "origin": "杭州萧山机场",
+            "destination": "成都双流机场",
+            "place": "成都双流机场",
+            "location": "成都双流机场",
+            "transport": "✈️ 飞机",
+            "dwell_min": null,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "20:50 萧山机场起飞，23:55 抵达成都双流机场。落地后前往一嗨租车双流机场店取车，入住双流机场附近酒店。"
+            ],
+            "coords": {
+              "lng": 103.951229,
+              "lat": 30.559807
+            }
+          }
+        ],
+        "url": "",
+        "source": "outlook"
+      },
+      {
+        "id": null,
+        "day": "Day1",
+        "date": "2026-09-30",
+        "title": "双流机场酒店→四姑娘山觅宿酒店 (4站)",
+        "full_title": "Day1 - 双流机场酒店→四姑娘山觅宿酒店 (4站)",
+        "icon": "🏞️",
+        "transport": "🚗 汽车",
+        "route": [
+          "双流机场酒店",
+          "毕棚沟景区",
+          "毕棚沟",
+          "四姑娘山觅宿酒店"
+        ],
+        "project": null,
+        "stops": [
+          {
+            "time": "07:00",
+            "end_time": "11:30",
+            "icon": "🚗",
+            "name": "双流机场酒店→毕棚沟景区",
+            "is_transit": true,
+            "origin": "双流机场酒店",
+            "destination": "毕棚沟景区",
+            "place": "毕棚沟景区",
+            "location": "毕棚沟",
+            "transport": "🚗 汽车",
+            "dwell_min": null,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "早出发走蓉昌高速→汶马高速，约280km。"
+            ],
+            "coords": {
+              "lng": 102.994424,
+              "lat": 31.38062
+            }
+          },
+          {
+            "time": "11:30",
+            "end_time": "15:30",
+            "icon": "🏞️",
+            "name": "毕棚沟游玩",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "毕棚沟",
+            "location": "毕棚沟",
+            "transport": "🚗 汽车",
+            "dwell_min": 240,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "观光车+徒步，注意高反与保暖。"
+            ],
+            "coords": {
+              "lng": 102.994424,
+              "lat": 31.38062
+            }
+          },
+          {
+            "time": "15:30",
+            "end_time": "19:00",
+            "icon": "🛣️",
+            "name": "毕棚沟→四姑娘山觅宿酒店",
+            "is_transit": true,
+            "origin": "毕棚沟",
+            "destination": "四姑娘山觅宿酒店",
+            "place": "四姑娘山觅宿酒店",
+            "location": "四姑娘镇",
+            "transport": "🚗 汽车",
+            "dwell_min": null,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "途径理小路观景路段，晚上住四姑娘山觅宿酒店（四姑娘镇）。"
+            ],
+            "coords": {
+              "lng": 102.832159,
+              "lat": 30.993909
+            }
+          }
+        ],
+        "url": "",
+        "source": "outlook"
+      },
+      {
+        "id": null,
         "day": "Day2",
         "date": "2026-10-01",
-        "title": "5 - 四姑娘山→八美",
-        "full_title": "Day2-5 - 四姑娘山→八美 (3站)",
-        "icon": "🏔",
+        "title": "双桥沟→八美镇 (3站)",
+        "full_title": "Day2 - 双桥沟→八美镇 (3站)",
+        "icon": "🏔️",
         "transport": "🚗 汽车",
-        "locations": [
-          "四姑娘山",
+        "route": [
+          "双桥沟",
           "甲居藏寨",
-          "八美"
+          "八美镇"
         ],
-        "stop_count": "3",
-        "waypoints": [
+        "project": null,
+        "stops": [
           {
-            "time": "08:00",
-            "icon": "🚗",
-            "name": "四姑娘山·双桥沟 🏔️ → 四姑娘山",
+            "time": "08:30",
+            "end_time": "12:30",
+            "icon": "🏔️",
+            "name": "四姑娘山·双桥沟",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "双桥沟",
+            "location": "双桥沟",
+            "transport": "🚗 汽车",
+            "dwell_min": 240,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "双桥沟观光车全线游玩，约3-4小时。"
+            ],
             "coords": {
-              "lng": 102.901969,
-              "lat": 31.11045
-            }
-          },
-          {
-            "time": "12:00",
-            "icon": "🚗",
-            "name": "猫鼻梁观景台 📸 → 四姑娘山",
-            "coords": {
-              "lng": 102.901969,
-              "lat": 31.11045
+              "lng": 102.769727,
+              "lat": 30.980074
             }
           },
           {
             "time": "13:00",
-            "icon": "🚗",
-            "name": "四姑娘山→甲居藏寨 🚗 → 甲居藏寨",
+            "end_time": "16:00",
+            "icon": "🏘️",
+            "name": "甲居藏寨",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "甲居藏寨",
+            "location": "甲居藏寨",
+            "transport": "🚗 汽车",
+            "dwell_min": 180,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "丹巴甲居藏寨游览拍照。"
+            ],
             "coords": {
-              "lng": 102.901969,
-              "lat": 31.11045
+              "lng": 101.862684,
+              "lat": 30.939766
             }
           },
           {
-            "time": "16:30",
+            "time": "16:00",
+            "end_time": "19:30",
             "icon": "🚗",
-            "name": "甲居藏寨游玩 🏘️ → 甲居藏寨",
+            "name": "八美镇住宿",
+            "is_transit": false,
+            "origin": null,
+            "destination": "八美镇",
+            "place": "八美镇",
+            "location": "八美镇",
+            "transport": "🚗 汽车",
+            "dwell_min": 210,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "丹巴→八美，约100km，晚上住八美镇。"
+            ],
             "coords": {
-              "lng": 101.868605,
-              "lat": 30.921073
-            }
-          },
-          {
-            "time": "18:00",
-            "icon": "🚗",
-            "name": "甲居藏寨→八美 🚗 → 八美",
-            "coords": {
-              "lng": 101.868605,
-              "lat": 30.921073
+              "lng": 101.48421,
+              "lat": 30.482995
             }
           }
         ],
-        "url": "https://app.notion.com/p/Day2-5-3-3c7616ff95e781ee8653cb0808fe0970",
-        "waypoints_with_geo": [
-          {
-            "time": "08:00",
-            "icon": "🚗",
-            "name": "四姑娘山·双桥沟 🏔️ → 四姑娘山",
-            "coords": {
-              "lng": 102.901969,
-              "lat": 31.11045
-            }
-          },
-          {
-            "time": "12:00",
-            "icon": "🚗",
-            "name": "猫鼻梁观景台 📸 → 四姑娘山",
-            "coords": {
-              "lng": 102.901969,
-              "lat": 31.11045
-            }
-          },
-          {
-            "time": "13:00",
-            "icon": "🚗",
-            "name": "四姑娘山→甲居藏寨 🚗 → 甲居藏寨",
-            "coords": {
-              "lng": 102.901969,
-              "lat": 31.11045
-            }
-          },
-          {
-            "time": "16:30",
-            "icon": "🚗",
-            "name": "甲居藏寨游玩 🏘️ → 甲居藏寨",
-            "coords": {
-              "lng": 101.868605,
-              "lat": 30.921073
-            }
-          },
-          {
-            "time": "18:00",
-            "icon": "🚗",
-            "name": "甲居藏寨→八美 🚗 → 八美",
-            "coords": {
-              "lng": 101.868605,
-              "lat": 30.921073
-            }
-          }
-        ]
+        "url": "",
+        "source": "outlook"
       },
       {
-        "id": "3c7616ff-95e7-8160-be07-f7a015674fda",
+        "id": null,
         "day": "Day3",
         "date": "2026-10-02",
-        "title": "八美→色达",
-        "full_title": "Day3 - 八美→色达 (4站)",
+        "title": "墨石公园→色达 (3站)",
+        "full_title": "Day3 - 墨石公园→色达 (3站)",
         "icon": "🪨",
         "transport": "🚗 汽车",
-        "locations": [
-          "八美",
-          "道孚",
-          "炉霍",
+        "route": [
+          "墨石公园",
+          "塔公草原",
           "色达"
         ],
-        "stop_count": "4",
-        "waypoints": [
+        "project": null,
+        "stops": [
           {
-            "time": "08:00",
-            "icon": "🚗",
-            "name": "墨石公园 🪨 → 八美",
+            "time": "09:00",
+            "end_time": "11:30",
+            "icon": "🪨",
+            "name": "墨石公园",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "墨石公园",
+            "location": "墨石公园",
+            "transport": "🚗 汽车",
+            "dwell_min": 150,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "八美墨石公园，异域石林景观。"
+            ],
             "coords": {
-              "lng": 101.474612,
-              "lat": 30.489756
-            }
-          },
-          {
-            "time": "10:00",
-            "icon": "🚗",
-            "name": "八美→道孚 🚗 → 道孚",
-            "coords": {
-              "lng": 101.474612,
-              "lat": 30.489756
+              "lng": 101.5424,
+              "lat": 30.444886
             }
           },
           {
             "time": "12:00",
-            "icon": "🚗",
-            "name": "道孚→炉霍 🚗 → 炉霍",
+            "end_time": "14:30",
+            "icon": "🌾",
+            "name": "塔公草原+塔公寺",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "塔公草原",
+            "location": "塔公草原",
+            "transport": "🚗 汽车",
+            "dwell_min": 150,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "塔公草原、塔公寺，远眺雅拉雪山。"
+            ],
             "coords": {
-              "lng": 101.125157,
-              "lat": 30.979486
+              "lng": 101.55496,
+              "lat": 30.32993
             }
           },
           {
-            "time": "13:30",
+            "time": "14:30",
+            "end_time": "19:30",
             "icon": "🚗",
-            "name": "炉霍→色达 🚗 → 色达",
+            "name": "None→色达",
+            "is_transit": true,
+            "origin": null,
+            "destination": "色达",
+            "place": "色达",
+            "location": "色达县",
+            "transport": "🚗 汽车",
+            "dwell_min": null,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "塔公→色达约330km，路程较长，注意行车安全与海拔（色达约3900m）。"
+            ],
             "coords": {
-              "lng": 100.676014,
-              "lat": 31.390657
+              "lng": 100.333011,
+              "lat": 32.268541
             }
           }
         ],
-        "url": "https://app.notion.com/p/Day3-4-3c7616ff95e78160be07f7a015674fda",
-        "waypoints_with_geo": [
-          {
-            "time": "08:00",
-            "icon": "🚗",
-            "name": "墨石公园 🪨 → 八美",
-            "coords": {
-              "lng": 101.474612,
-              "lat": 30.489756
-            }
-          },
-          {
-            "time": "10:00",
-            "icon": "🚗",
-            "name": "八美→道孚 🚗 → 道孚",
-            "coords": {
-              "lng": 101.474612,
-              "lat": 30.489756
-            }
-          },
-          {
-            "time": "12:00",
-            "icon": "🚗",
-            "name": "道孚→炉霍 🚗 → 炉霍",
-            "coords": {
-              "lng": 101.125157,
-              "lat": 30.979486
-            }
-          },
-          {
-            "time": "13:30",
-            "icon": "🚗",
-            "name": "炉霍→色达 🚗 → 色达",
-            "coords": {
-              "lng": 100.676014,
-              "lat": 31.390657
-            }
-          }
-        ]
+        "url": "",
+        "source": "outlook"
       },
       {
-        "id": "3c7616ff-95e7-81b0-9696-c5ba5b52b055",
+        "id": null,
         "day": "Day4",
         "date": "2026-10-03",
-        "title": "色达",
-        "full_title": "Day4 - 色达",
-        "icon": "🏔",
-        "transport": "",
-        "locations": [
-          "色达"
+        "title": "喇荣五明佛学院→格萨尔王城 (4站)",
+        "full_title": "Day4 - 喇荣五明佛学院→格萨尔王城 (4站)",
+        "icon": "🛕",
+        "transport": "🚗 汽车",
+        "route": [
+          "喇荣五明佛学院",
+          "东嘎寺",
+          "卡萨湖",
+          "格萨尔王城"
         ],
-        "stop_count": null,
-        "waypoints": [
+        "project": null,
+        "stops": [
           {
             "time": "08:00",
-            "icon": "🚗",
-            "name": "喇荣五明佛学院 🏔️ → 色达",
+            "end_time": "11:00",
+            "icon": "🛕",
+            "name": "色达佛学院",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "喇荣五明佛学院",
+            "location": "喇荣五明佛学院",
+            "transport": "🚗 汽车",
+            "dwell_min": 180,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "色达佛学院（喇荣沟），需提前预约/凭证，早上光线最佳。"
+            ],
             "coords": {
-              "lng": 100.333011,
-              "lat": 32.268541
+              "lng": 100.472477,
+              "lat": 32.150521
+            }
+          },
+          {
+            "time": "11:30",
+            "end_time": "13:30",
+            "icon": "🛕",
+            "name": "东嘎寺",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "东嘎寺",
+            "location": "东嘎寺",
+            "transport": "🚗 汽车",
+            "dwell_min": 120,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "色达县城附近，色达三大寺之一。"
+            ],
+            "coords": {
+              "lng": 100.27615,
+              "lat": 32.300496
             }
           },
           {
             "time": "14:00",
-            "icon": "🚗",
-            "name": "东嘎寺 🏛️ → 色达",
+            "end_time": "15:30",
+            "icon": "📸",
+            "name": "卡萨湖",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "卡萨湖",
+            "location": "卡萨湖",
+            "transport": "🚗 汽车",
+            "dwell_min": 90,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "炉霍方向路上，湖边观景。"
+            ],
             "coords": {
-              "lng": 100.333011,
-              "lat": 32.268541
-            }
-          }
-        ],
-        "url": "https://app.notion.com/p/Day4-3c7616ff95e781b09696c5ba5b52b055",
-        "waypoints_with_geo": [
-          {
-            "time": "08:00",
-            "icon": "🚗",
-            "name": "喇荣五明佛学院 🏔️ → 色达",
-            "coords": {
-              "lng": 100.333011,
-              "lat": 32.268541
+              "lng": 100.25997,
+              "lat": 31.649543
             }
           },
           {
-            "time": "14:00",
-            "icon": "🚗",
-            "name": "东嘎寺 🏛️ → 色达",
+            "time": "15:30",
+            "end_time": "18:00",
+            "icon": "🏨",
+            "name": "入住格萨尔王城维也纳酒店",
+            "is_transit": false,
+            "origin": null,
+            "destination": "格萨尔王城",
+            "place": "格萨尔王城",
+            "location": "格萨尔王城",
+            "transport": "🚗 汽车",
+            "dwell_min": 150,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "晚上住格萨尔王城维也纳酒店。"
+            ],
             "coords": {
-              "lng": 100.333011,
-              "lat": 32.268541
+              "lng": 100.01193,
+              "lat": 31.603482
             }
           }
-        ]
+        ],
+        "url": "",
+        "source": "outlook"
       },
       {
-        "id": "3c7616ff-95e7-81ca-944a-cce66ed84e59",
+        "id": null,
         "day": "Day5",
         "date": "2026-10-04",
-        "title": "甘孜",
-        "full_title": "Day5 - 甘孜",
-        "icon": "🚗",
+        "title": "格萨尔王城→长青春科尔寺 (4站)",
+        "full_title": "Day5 - 格萨尔王城→长青春科尔寺 (4站)",
+        "icon": "🏰",
         "transport": "🚗 汽车",
-        "locations": [
-          "甘孜"
+        "route": [
+          "格萨尔王城",
+          "经东嘎寺方向",
+          "理塘",
+          "长青春科尔寺"
         ],
-        "stop_count": null,
-        "waypoints": [
+        "project": null,
+        "stops": [
           {
-            "time": "08:00",
-            "icon": "🚗",
-            "name": "色达→甘孜 🚗 → 甘孜",
+            "time": "09:00",
+            "end_time": "11:00",
+            "icon": "🏰",
+            "name": "格萨尔王城",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "格萨尔王城",
+            "location": "格萨尔王城",
+            "transport": "🚗 汽车",
+            "dwell_min": 120,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "格萨尔王城文创园区游览。"
+            ],
             "coords": {
-              "lng": 99.991683,
-              "lat": 31.622731
+              "lng": 100.01193,
+              "lat": 31.603482
             }
           },
           {
             "time": "11:00",
+            "end_time": "16:30",
             "icon": "🚗",
-            "name": "甘孜寺+格萨尔王城 🏛️ → 甘孜",
+            "name": "经东嘎寺方向→理塘",
+            "is_transit": true,
+            "origin": "经东嘎寺方向",
+            "destination": "理塘",
+            "place": "理塘",
+            "location": "亚青寺",
+            "transport": "🚗 汽车",
+            "dwell_min": null,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "白玉亚青寺（觉姆区需登记），之后前往理塘，路程长，约280km。"
+            ],
             "coords": {
-              "lng": 99.991683,
-              "lat": 31.622731
+              "lng": 100.269145,
+              "lat": 29.994228
             }
           },
           {
-            "time": "13:30",
-            "icon": "🚗",
-            "name": "甘白路自驾 🛣️ → 甘孜",
+            "time": "17:00",
+            "end_time": "18:00",
+            "icon": "🛕",
+            "name": "长青春科尔寺（有时间）",
+            "is_transit": false,
+            "origin": null,
+            "destination": "理塘",
+            "place": "长青春科尔寺",
+            "location": "长青春科尔寺",
+            "transport": "🚗 汽车",
+            "dwell_min": 60,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "理塘县城内，康区最大黄教寺。晚住理塘（约4000m，注意高反）。"
+            ],
             "coords": {
-              "lng": 99.991683,
-              "lat": 31.622731
+              "lng": 100.275862,
+              "lat": 30.00253
             }
           }
         ],
-        "url": "https://app.notion.com/p/Day5-3c7616ff95e781ca944acce66ed84e59",
-        "waypoints_with_geo": [
-          {
-            "time": "08:00",
-            "icon": "🚗",
-            "name": "色达→甘孜 🚗 → 甘孜",
-            "coords": {
-              "lng": 99.991683,
-              "lat": 31.622731
-            }
-          },
-          {
-            "time": "11:00",
-            "icon": "🚗",
-            "name": "甘孜寺+格萨尔王城 🏛️ → 甘孜",
-            "coords": {
-              "lng": 99.991683,
-              "lat": 31.622731
-            }
-          },
-          {
-            "time": "13:30",
-            "icon": "🚗",
-            "name": "甘白路自驾 🛣️ → 甘孜",
-            "coords": {
-              "lng": 99.991683,
-              "lat": 31.622731
-            }
-          }
-        ]
+        "url": "",
+        "source": "outlook"
       },
       {
-        "id": "3c7616ff-95e7-8139-8adf-d9e31cbb9f02",
+        "id": null,
         "day": "Day6",
         "date": "2026-10-05",
-        "title": "理塘→新都桥",
-        "full_title": "Day6 - 理塘→新都桥",
-        "icon": "🚗",
+        "title": "理塘→新都桥 (5站)",
+        "full_title": "Day6 - 理塘→新都桥 (5站)",
+        "icon": "🏔️",
         "transport": "🚗 汽车",
-        "locations": [
+        "route": [
           "理塘",
+          "格聂之眼",
+          "格聂景区",
+          "经高尔寺",
           "新都桥"
         ],
-        "stop_count": null,
-        "waypoints": [
+        "project": null,
+        "stops": [
           {
-            "time": "07:00",
+            "time": "07:30",
+            "end_time": "11:30",
             "icon": "🚗",
-            "name": "甘孜→理塘 🚗 → 理塘",
+            "name": "理塘→格聂之眼",
+            "is_transit": true,
+            "origin": "理塘",
+            "destination": "格聂之眼",
+            "place": "格聂之眼",
+            "location": "格聂之眼",
+            "transport": "🚗 汽车",
+            "dwell_min": null,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "理塘→格聂镇→格聂之眼，部分非铺装路面，建议SUV。"
+            ],
             "coords": {
-              "lng": 100.269145,
-              "lat": 29.994228
+              "lng": 99.760589,
+              "lat": 29.795537
             }
           },
           {
-            "time": "12:00",
-            "icon": "🚗",
-            "name": "理塘游玩 🏔️ → 理塘",
-            "coords": {
-              "lng": 100.269145,
-              "lat": 29.994228
-            }
+            "time": "11:30",
+            "end_time": "16:00",
+            "icon": "🏔️",
+            "name": "格聂区域：新冷古寺·则巴村·夯达营地",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "格聂景区",
+            "location": "格聂景区",
+            "transport": "🚗 汽车",
+            "dwell_min": 270,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "格聂之眼→冷古寺→则巴村→夯达营地（视路况与体力取舍）。"
+            ]
           },
           {
-            "time": "14:00",
+            "time": "16:00",
+            "end_time": "20:00",
             "icon": "🚗",
-            "name": "理塘→新都桥 🚗 → 新都桥",
-            "coords": {
-              "lng": 100.269145,
-              "lat": 29.994228
-            }
-          },
-          {
-            "time": "18:00",
-            "icon": "🚗",
-            "name": "新都桥日落 📸 → 新都桥",
+            "name": "经高尔寺→新都桥",
+            "is_transit": true,
+            "origin": "经高尔寺",
+            "destination": "新都桥",
+            "place": "新都桥",
+            "location": "新都桥",
+            "transport": "🚗 汽车",
+            "dwell_min": null,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "格聂→雅江（过高尔寺山隧道）→新都桥，约230km，摄影天堂。"
+            ],
             "coords": {
               "lng": 101.484097,
               "lat": 30.067369
             }
           }
         ],
-        "url": "https://app.notion.com/p/Day6-3c7616ff95e781398adfd9e31cbb9f02",
-        "waypoints_with_geo": [
-          {
-            "time": "07:00",
-            "icon": "🚗",
-            "name": "甘孜→理塘 🚗 → 理塘",
-            "coords": {
-              "lng": 100.269145,
-              "lat": 29.994228
-            }
-          },
-          {
-            "time": "12:00",
-            "icon": "🚗",
-            "name": "理塘游玩 🏔️ → 理塘",
-            "coords": {
-              "lng": 100.269145,
-              "lat": 29.994228
-            }
-          },
-          {
-            "time": "14:00",
-            "icon": "🚗",
-            "name": "理塘→新都桥 🚗 → 新都桥",
-            "coords": {
-              "lng": 100.269145,
-              "lat": 29.994228
-            }
-          },
-          {
-            "time": "18:00",
-            "icon": "🚗",
-            "name": "新都桥日落 📸 → 新都桥",
-            "coords": {
-              "lng": 101.484097,
-              "lat": 30.067369
-            }
-          }
-        ]
+        "url": "",
+        "source": "outlook"
       },
       {
-        "id": "3c7616ff-95e7-8117-a623-db2f3dfe154a",
+        "id": null,
         "day": "Day7",
         "date": "2026-10-06",
-        "title": "康定→成都",
-        "full_title": "Day7 - 康定→成都",
-        "icon": "🚗",
+        "title": "贡嘎雪山观景台→成都春熙路 (4站)",
+        "full_title": "Day7 - 贡嘎雪山观景台→成都春熙路 (4站)",
+        "icon": "📸",
         "transport": "🚗 汽车",
-        "locations": [
-          "康定",
-          "成都"
+        "route": [
+          "贡嘎雪山观景台",
+          "降布神山观景台",
+          "康定情歌广场",
+          "成都春熙路"
         ],
-        "stop_count": null,
-        "waypoints": [
+        "project": null,
+        "stops": [
           {
-            "time": "08:00",
-            "icon": "🚗",
-            "name": "新都桥→康定 🚗 → 康定",
+            "time": "08:30",
+            "end_time": "11:00",
+            "icon": "📸",
+            "name": "贡嘎雪山观景台",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "贡嘎雪山观景台",
+            "location": "贡嘎雪山观景台",
+            "transport": "🚗 汽车",
+            "dwell_min": 150,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "新都桥→子梅垭口方向或贡嘎观景平台（视路况），清晨日照金山概率高。"
+            ],
             "coords": {
-              "lng": 101.95687,
-              "lat": 29.998544
+              "lng": 101.531681,
+              "lat": 30.043404
             }
           },
           {
             "time": "11:00",
-            "icon": "🚗",
-            "name": "康定游玩 ⛰️ → 康定",
+            "end_time": "13:00",
+            "icon": "📸",
+            "name": "降布神山观景台",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "降布神山观景台",
+            "location": "降布神山观景台",
+            "transport": "🚗 汽车",
+            "dwell_min": 120,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "居里寺垭口/降布观景台，贡嘎群峰。"
+            ],
             "coords": {
-              "lng": 101.95687,
-              "lat": 29.998544
+              "lng": 101.572112,
+              "lat": 30.019443
             }
           },
           {
-            "time": "13:30",
+            "time": "13:00",
+            "end_time": "18:00",
             "icon": "🚗",
-            "name": "康定→成都 🚗 → 成都",
+            "name": "康定情歌广场→成都春熙路",
+            "is_transit": true,
+            "origin": "康定情歌广场",
+            "destination": "成都春熙路",
+            "place": "成都春熙路",
+            "location": "康定情歌广场",
+            "transport": "🚗 汽车",
+            "dwell_min": null,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "康定情歌广场打卡后上雅康高速→成都，约330km。晚上住春熙路附近酒店。"
+            ],
             "coords": {
-              "lng": 101.95687,
-              "lat": 29.998544
-            }
-          },
-          {
-            "time": "17:00",
-            "icon": "🚗",
-            "name": "成都逛吃 🍜 → 成都",
-            "coords": {
-              "lng": 104.066301,
-              "lat": 30.572961
+              "lng": 104.078643,
+              "lat": 30.657952
             }
           }
         ],
-        "url": "https://app.notion.com/p/Day7-3c7616ff95e78117a623db2f3dfe154a",
-        "waypoints_with_geo": [
+        "url": "",
+        "source": "outlook"
+      },
+      {
+        "id": null,
+        "day": "Day8",
+        "date": "2026-10-07",
+        "title": "春熙路→杭州萧山机场 (3站)",
+        "full_title": "Day8 - 春熙路→杭州萧山机场 (3站)",
+        "icon": "🛍️",
+        "transport": "🚗 汽车",
+        "route": [
+          "春熙路",
+          "成都天府机场",
+          "杭州萧山机场"
+        ],
+        "project": null,
+        "stops": [
           {
-            "time": "08:00",
-            "icon": "🚗",
-            "name": "新都桥→康定 🚗 → 康定",
+            "time": "10:00",
+            "end_time": "17:00",
+            "icon": "🛍️",
+            "name": "春熙路周边游玩",
+            "is_transit": false,
+            "origin": null,
+            "destination": null,
+            "place": "春熙路",
+            "location": "春熙路",
+            "transport": "🚗 汽车",
+            "dwell_min": 420,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "太古里、宽窄巷子等自由活动，预留还车前整备时间。"
+            ],
             "coords": {
-              "lng": 101.95687,
-              "lat": 29.998544
-            }
-          },
-          {
-            "time": "11:00",
-            "icon": "🚗",
-            "name": "康定游玩 ⛰️ → 康定",
-            "coords": {
-              "lng": 101.95687,
-              "lat": 29.998544
-            }
-          },
-          {
-            "time": "13:30",
-            "icon": "🚗",
-            "name": "康定→成都 🚗 → 成都",
-            "coords": {
-              "lng": 101.95687,
-              "lat": 29.998544
+              "lng": 104.078643,
+              "lat": 30.657952
             }
           },
           {
             "time": "17:00",
+            "end_time": "18:00",
             "icon": "🚗",
-            "name": "成都逛吃 🍜 → 成都",
+            "name": "春熙路→成都天府机场",
+            "is_transit": true,
+            "origin": "春熙路",
+            "destination": "成都天府机场",
+            "place": "成都天府机场",
+            "location": "天府机场·一嗨还车点",
+            "transport": "🚗 汽车",
+            "dwell_min": null,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "17:00 出发，春熙路→天府机场约60km，预留加油/还车验车时间。"
+            ],
             "coords": {
-              "lng": 104.066301,
-              "lat": 30.572961
+              "lng": 104.446518,
+              "lat": 30.308016
+            }
+          },
+          {
+            "time": "19:00",
+            "end_time": "22:00",
+            "icon": "✈️",
+            "name": "成都天府机场→杭州萧山机场",
+            "is_transit": true,
+            "origin": "成都天府机场",
+            "destination": "杭州萧山机场",
+            "place": "杭州萧山机场",
+            "location": "杭州萧山机场",
+            "transport": "✈️ 飞机",
+            "dwell_min": null,
+            "note": null,
+            "guard": null,
+            "cost": null,
+            "notes": [
+              "19:00 天府机场起飞，22:00 抵达杭州。"
+            ],
+            "coords": {
+              "lng": 120.432413,
+              "lat": 30.234708
             }
           }
-        ]
+        ],
+        "url": "",
+        "source": "outlook"
       }
     ]
-  },
-  "geo_cache": {
-    "八美": {
-      "lng": 101.474612,
-      "lat": 30.489756
-    },
-    "四姑娘山": {
-      "lng": 102.901969,
-      "lat": 31.11045
-    },
-    "康定": {
-      "lng": 101.95687,
-      "lat": 29.998544
-    },
-    "成都": {
-      "lng": 104.066301,
-      "lat": 30.572961
-    },
-    "新都桥": {
-      "lng": 101.484097,
-      "lat": 30.067369
-    },
-    "炉霍": {
-      "lng": 100.676014,
-      "lat": 31.390657
-    },
-    "理塘": {
-      "lng": 100.269145,
-      "lat": 29.994228
-    },
-    "甘孜": {
-      "lng": 99.991683,
-      "lat": 31.622731
-    },
-    "甲居藏寨": {
-      "lng": 101.868605,
-      "lat": 30.921073
-    },
-    "色达": {
-      "lng": 100.333011,
-      "lat": 32.268541
-    },
-    "道孚": {
-      "lng": 101.125157,
-      "lat": 30.979486
-    }
   }
 }
