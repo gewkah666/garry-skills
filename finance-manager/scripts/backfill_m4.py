@@ -29,9 +29,9 @@ if only in ("all", "anchors"):
     log("anchors:", len(snap), "with flips:", sum(1 for a in snap if a["flipped_sum"] or a["paired_sum"]))
     fixed = backfill.resolve_anchors(snap); log("anchors re-solved:", len(fixed))
     for f in fixed: log("  ", f)
-    ops.sync(); check = backfill.original_anchor_snapshot(RUN_STARTED_UTC)
-    with ops.ledger.connect() as con:
-        bad = [(a["name"], ops.ledger.balance(con, a["account_id"], a["at"]), a["balance"]) for a in check
+    ops.sync()
+    with ops.ledger.connect() as con:  # compare against the targets resolve_anchors used, not a recomputed snapshot
+        bad = [(a["name"], ops.ledger.balance(con, a["account_id"], a["at"]), a["balance"]) for a in snap
                if abs(ops.ledger.balance(con, a["account_id"], a["at"]) - a["balance"]) > 0.01]
     log("anchor check mismatches:", bad or "none")
 if only in ("all", "prune"):
