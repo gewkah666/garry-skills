@@ -100,7 +100,7 @@ python3 $G/publish_guide.py output/chuanxi-2026/guide.html --title "川西 · �
 
 分享链接打开时，「06 出发前」的**必带**一栏变成每人各自一份：同行者从下拉里认领身份，勾选 / 增删条目 / 填忌口住宿偏好，**唯一数据源是 Notion**，御主在表里实时看到。谁能出现在下拉里由御主控制（表里的「已加入」勾选框）。
 
-后端是 **dashboards 插件里的 relay**（`~/Projects/phantom/hermes-dashboards-plugin`，软链在 `~/.hermes/plugins/dashboards`）。那个插件是「Hermes 对外暴露层」：一半托管静态报表，一半就是这个 relay，共用同一个 provider 和 token 门。本 skill 只负责：建表、生成资源描述、页面渲染。
+后端是 **dashboards 插件里的 relay**（真身在 `~/.hermes/hermes-agent/plugins/dashboards`；`~/Projects/phantom/hermes-dashboards-plugin` 和 `~/.hermes/plugins/dashboards` 都是指向它的软链，全局只有这一份 clone）。那个插件是「Hermes 对外暴露层」：一半托管静态报表，一半就是这个 relay，共用同一个 provider 和 token 门。本 skill 只负责：建表、生成资源描述、页面渲染。
 
 ```bash
 # 1. Notion 侧建表 + 建人（parent-page 用行程总览页的 id）
@@ -130,11 +130,11 @@ json.dump(cfg,open(p,'w'),ensure_ascii=False,indent=2); os.chmod(p,0o600); print
 - **表结构**：database「<标题> · 同行准备」，一行一个人；属性 姓名 / 已加入 / 饮食忌口 / 住宿偏好 / 住宿备注 / 紧急联系人；行的正文是这个人的物品 `to_do` 清单，每条的灰色斜体尾巴是「为什么带」（`prep.essentials[].why` 种进去的）。御主直接在 Notion 里加行、改名、勾「已加入」即可，不必跑脚本——但手工建的行是空的，记得 `seed --all` 补物品。
 - **表单不硬编码**：页面按 relay 的 `/schema` 渲染，字段类型和 select 选项都从 Notion 的 database schema 读。想多开一个字段，在 Notion 里建好列 → 加进 `scripts/collab_resource.py` 的 `FIELDS` → 重新 `--register`，页面不用改。
 - **同一份 HTML 两处通用**：页面从自己 URL 的 `?t=` 取 token。分享副本带 token → 协作激活；dashboards 那份没有 token → 自动退回本机 localStorage 勾选。不需要 CORS，也不用构建两次。协作连不上（后端挂了 / 断网）同样退回本机，离线单文件永远能看。
-- **鉴权的四道闸在插件那边**，别在这个 skill 里试图绕过。改后端前先读 `hermes-dashboards-plugin/dashboard/relay_api.py` 头部和 `tests/test_relay.py` 的越权用例。
+- **鉴权的四道闸在插件那边**，别在这个 skill 里试图绕过。改后端前先读 dashboards 插件的 `dashboard/relay_api.py` 头部和 `tests/test_relay.py` 的越权用例。
 - **后端跑在这台 Mac 上**（Hermes dashboard 进程，VM 经 Tailscale 回源）。笔记本睡了或掉线，同行者就改不了东西——页面会退回本机勾选，不白屏但协作停摆。出远门期间尤其注意。
 - **公网怎么过 Hermes 的门**：VM nginx 在 `/s/api/n/` 服务端注入 `API_SERVER_KEY` 并把 Host 改成 Hermes 的绑定地址，浏览器永远看不到那个 key。改 nginx 走 `phantom-infra/nginx/deploy.sh`。
 - **认领不做身份验证**：拿到链接的人可以认领名单里任何人（熟人团的取舍）。别把不想外传的东西放进这张表——「紧急联系人」同行者之间互相可见。
-- **改动后必测**：`~/.hermes/hermes-agent/venv/bin/python ~/Projects/phantom/hermes-dashboards-plugin/tests/test_relay.py`（34 个用例，假 Notion，快）＋ `node tests/browser_test.mjs <线上链接>`（真浏览器真 Notion）。测完记得把写进 Notion 的测试数据清掉。
+- **改动后必测**：`~/.hermes/hermes-agent/venv/bin/python ~/.hermes/plugins/dashboards/tests/test_relay.py`（34 个用例，假 Notion，快）＋ `node tests/browser_test.mjs <线上链接>`（真浏览器真 Notion）。测完记得把写进 Notion 的测试数据清掉。
 
 ## 文件
 
@@ -152,4 +152,4 @@ references/content-model.md  各章内容契约、字段说明、研究标准
 output/<slug>/               guide.json / guide.html / collab.json（个人数据，不必提交）
 ```
 
-协作后端不在本仓库：`~/Projects/phantom/hermes-dashboards-plugin` 的 `dashboard/relay_*.py`（Hermes 插件，软链在 `~/.hermes/plugins/dashboards`）。
+协作后端不在本仓库：dashboards 插件的 `dashboard/relay_*.py`，真身在 `~/.hermes/hermes-agent/plugins/dashboards`（Projects 下同名路径是软链）。
