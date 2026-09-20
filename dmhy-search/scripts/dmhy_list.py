@@ -6,6 +6,7 @@ dmhy_list.py - 列出 DMHY RSS 最新种子
 """
 import argparse
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -24,24 +25,61 @@ CATEGORY_NAMES = {
 }
 
 
+def _local_proxy():
+    """找可用的本机代理（cron 直连 DMHY 常被墙/超时，须走代理兜底）。"""
+    import socket
+    cand = []
+    for k in ("HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"):
+        v = os.environ.get(k, "")
+        if "127.0.0.1" in v or "localhost" in v:
+            cand.append(v.rsplit("://", 1)[-1])
+    cand.append("127.0.0.1:12334")
+    cand += ["127.0.0.1:7890", "127.0.0.1:7897"]
+    for c in cand:
+        try:
+            host, port = c.rsplit(":", 1)
+            with socket.create_connection((host, int(port)), timeout=1):
+                return "http://" + host + ":" + port
+        except Exception:
+            continue
+    return None
+
+
+def _open_rss(use_proxy=False):
+    req = Request(RSS_URL, headers={"User-Agent": "Mozilla/5.0"})
+    if use_proxy:
+        import urllib.request
+        px = _local_proxy()
+        if not px:
+            raise URLError("no local proxy available")
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({"https": px, "http": px}))
+        return opener.open(req, timeout=30)
+    return urlopen(req, timeout=20)
+
+
 def fetch_rss(force: bool = False) -> bytes:
-    """读取 RSS，缓存 30 分钟。"""
+    """读取 RSS，缓存 30 分钟；直连失败自动走本机代理。"""
     CACHE.parent.mkdir(parents=True, exist_ok=True)
     if not force and CACHE.exists():
         age = (datetime.now().timestamp() - CACHE.stat().st_mtime) / 60
         if age < CACHE_TTL_MIN:
             return CACHE.read_bytes()
-    try:
-        req = Request(RSS_URL, headers={"User-Agent": "Mozilla/5.0"})
-        with urlopen(req, timeout=20) as resp:
-            data = resp.read()
-        CACHE.write_bytes(data)
-        return data
-    except URLError as e:
-        if CACHE.exists():
-            sys.stderr.write(f"[warn] fetch failed, using stale cache: {e}\n")
-            return CACHE.read_bytes()
-        raise
+    for use_proxy in (False, True):
+        try:
+            with _open_rss(use_proxy=use_proxy) as resp:
+                data = resp.read()
+            CACHE.write_bytes(data)
+            if use_proxy:
+                sys.stderr.write("[info] direct failed, fetched RSS via local proxy\n")
+            return data
+        except (URLError, OSError) as e:
+            if not use_proxy:
+                continue
+            if CACHE.exists():
+                sys.stderr.write(f"[warn] fetch failed, using stale cache: {e}\n")
+                return CACHE.read_bytes()
+            raise
+    raise URLError("fetch_rss: direct and proxy both failed")
 
 
 def parse_items(xml_bytes: bytes) -> list:

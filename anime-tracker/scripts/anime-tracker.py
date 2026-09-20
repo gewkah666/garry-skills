@@ -3,7 +3,8 @@
 anime-tracker.py - 追剧自动搜磁力 (主入口)
 
 读 ~/.config/anime-tracker/watchlist.yaml →
-Bangumi 判定连载状态 → DMHY 搜磁力 → aria2 RPC 提交
+Bangumi 判定连载状态 → DMHY 搜磁力 → NAS qBittorrent WebAPI 提交
+（--fallback-aria2 可退回本机 aria2；默认不再往 rclone 挂载目录写）
 
 用法:
   python anime-tracker.py --dry-run
@@ -15,6 +16,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 from urllib.request import Request, urlopen
 
 # 把 bangumi-resolve 和 dmhy-search 加进 sys.path
@@ -31,8 +33,30 @@ from dmhy_list import fetch_rss, parse_items  # noqa: E402
 
 ARIA2_URL = "http://localhost:6800/jsonrpc"
 ARIA2_TOKEN = "hermes_rpc_2026"
+# 旧版事故目录（rclone 挂载直写会产生 0 字节占位假文件）——仅在 --fallback-aria2 时用
 NAS_BASE = "/Users/garry/临时/zspace/ZSPACE/sata11-15700085549/电影&电视剧/Anime"
 CONFIG_PATH = Path.home() / ".config" / "anime-tracker" / "watchlist.yaml"
+ENV_PATH = Path.home() / ".hermes" / ".env"
+
+
+def load_env_file(path: Path = ENV_PATH) -> dict:
+    """极简 .env 解析（KEY=VALUE，忽略注释/空行），不覆盖已有环境变量。"""
+    import os
+    env = dict(os.environ)
+    if path.exists():
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            env.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    return env
+
+
+ENV = load_env_file()
+QB_URL = ENV.get("QBT_URL", "http://192.168.31.149:8089")
+QB_KEY = ENV.get("QBT_API_KEY", "")
+QB_BASE_DIR = "/downloads"  # qb 容器内路径 = NAS /sata11/my/data/qb/Downloads（极影视扫描范围内）
 
 
 def load_watchlist(path: Path) -> list:
@@ -69,7 +93,7 @@ def load_watchlist(path: Path) -> list:
 
 
 def call_aria2_add(magnet: str, target_dir: str) -> str:
-    """通过 RPC 提交磁力到 aria2 daemon。返回 GID。"""
+    """【备用】通过 RPC 提交磁力到本机 aria2 daemon。返回 GID。"""
     payload = json.dumps({
         "jsonrpc": "2.0", "id": 1, "method": "aria2.addUri",
         "params": [f"token:{ARIA2_TOKEN}", [magnet], {"dir": target_dir}]
@@ -83,6 +107,40 @@ def call_aria2_add(magnet: str, target_dir: str) -> str:
         return data.get("result", f"error: {result.stdout[:100]}")
     except Exception as e:
         return f"parse-error: {e}"
+
+
+def qb_request(path: str, form: Optional[dict] = None) -> str:
+    """qBittorrent WebAPI：GET 或表单 POST，Bearer key 认证（御主明令勿用密码）。"""
+    data = None
+    headers = {"Authorization": f"Bearer {QB_KEY}"}
+    if form is not None:
+        from urllib.parse import urlencode
+        data = urlencode(form).encode()
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+    req = Request(QB_URL + path, data=data, headers=headers)
+    with urlopen(req, timeout=30) as resp:
+        return resp.read().decode().strip()
+
+
+def call_qb_add(magnet: str, save_path: str) -> str:
+    """提交磁力到 NAS qBittorrent。返回回执串或 'error: ...'。
+    qb≤4 返回 'ok'；qb5+ 返回 JSON（added_torrent_ids / failure_count）。"""
+    if not QB_KEY:
+        return "error: QBT_API_KEY 未配置（~/.hermes/.env）"
+    try:
+        r = qb_request("/api/v2/torrents/add", {"urls": magnet, "savepath": save_path})
+        if r == "ok" or r == "":
+            return "ok"
+        try:
+            data = json.loads(r)
+            if data.get("failure_count"):
+                return f"error: {r[:150]}"
+            ids = data.get("added_torrent_ids") or []
+            return "ok" if ids else f"error: empty reply {r[:100]}"
+        except json.JSONDecodeError:
+            return f"error: {r[:100]}"
+    except Exception as e:
+        return f"error: {e}"
 
 
 def search_dmhy(name: str, limit: int = 3) -> list:
@@ -167,7 +225,7 @@ def resolve_status(item: dict) -> dict:
     }
 
 
-def process_item(item: dict, dry_run: bool = True) -> dict:
+def process_item(item: dict, dry_run: bool = True, fallback_aria2: bool = False) -> dict:
     """单剧处理流水线。"""
     name = item.get("name_cn", "?")
     status = resolve_status(item)
@@ -202,7 +260,10 @@ def process_item(item: dict, dry_run: bool = True) -> dict:
     if not magnet.startswith("magnet:"):
         return {"name": name, "status": "no-magnet", "hit": latest}
 
-    target_dir = f"{NAS_BASE}/{target_name}"
+    if fallback_aria2:
+        target_dir = f"{NAS_BASE}/{target_name}"
+    else:
+        target_dir = f"{QB_BASE_DIR}/{target_name}"
 
     if dry_run:
         return {
@@ -213,9 +274,16 @@ def process_item(item: dict, dry_run: bool = True) -> dict:
             "dmhy_title": latest["title"],
             "magnet": magnet[:80] + "...",
             "target": target_dir,
+            "engine": "aria2" if fallback_aria2 else "qb",
         }
 
-    gid = call_aria2_add(magnet, target_dir)
+    if fallback_aria2:
+        gid = call_aria2_add(magnet, target_dir)
+    else:
+        gid = call_qb_add(magnet, target_dir)
+        if gid.startswith("error"):
+            return {"name": name, "status": "submit-failed", "reason": gid,
+                    "subject_id": status["subject_id"], "name_cn": status["name_cn"]}
     return {
         "name": name,
         "status": "submitted",
@@ -224,6 +292,7 @@ def process_item(item: dict, dry_run: bool = True) -> dict:
         "dmhy_title": latest["title"],
         "gid": gid,
         "target": target_dir,
+        "engine": "aria2" if fallback_aria2 else "qb",
     }
 
 
@@ -232,6 +301,8 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--watchlist", default=str(CONFIG_PATH))
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--fallback-aria2", action="store_true",
+                    help="退回本机 aria2 + rclone 挂载目录（默认 NAS qb）")
     args = ap.parse_args()
 
     watchlist = load_watchlist(Path(args.watchlist).expanduser())
@@ -241,7 +312,7 @@ def main():
 
     results = []
     for item in watchlist:
-        r = process_item(item, dry_run=args.dry_run)
+        r = process_item(item, dry_run=args.dry_run, fallback_aria2=args.fallback_aria2)
         results.append(r)
         time.sleep(0.5)
 
@@ -254,10 +325,12 @@ def main():
             print(f"[{status}] {name}")
             if status == "dry-run":
                 print(f"  磁力: {r['magnet']}")
-                print(f"  目标: {r['target']}")
+                print(f"  目标: {r['target']} ({r.get('engine','qb')})")
             elif status == "submitted":
-                print(f"  GID: {r['gid']}")
-                print(f"  目标: {r['target']}")
+                print(f"  回执: {r['gid']}")
+                print(f"  目标: {r['target']} ({r.get('engine','qb')})")
+            elif status == "submit-failed":
+                print(f"  提交失败: {r.get('reason')}")
             elif status == "already-finished":
                 print(f"  eps={r.get('eps')}/{r.get('total_episodes')} (已完结,跳过)")
             elif status in ("no-dmhy-match", "resolve-failed"):

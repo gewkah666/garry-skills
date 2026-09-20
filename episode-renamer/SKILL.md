@@ -70,3 +70,20 @@ python ~/.hermes/skills/episode-renamer/scripts/episode-rename.py \
 - 从父目录名（如 `S4/`）识别
 - 从文件名中 `S##` 标识（如 `[Tensei S4]`）识别
 - 失败则默认 `S01`
+
+## NAS qb 目录里的文件（不走本脚本）
+
+脚本面向本地/Volumes 路径。位于 NAS `qb/Downloads/` 的文件 rclone 挂载可能看不到，
+改名改走 API：
+
+- **已下完的文件**：zspace-mcp `/v2/file/modify`（path + newname），批量配合
+  `/v2/file/list` 分页。
+- **还在下载中的种子**：qb WebAPI `POST /api/v2/torrents/renameFile`，参数
+  `hash` + `oldPath` + `newPath`（驼峰！snake_case 报 400），落盘时即为新名。
+- 撞号处理：包内同集常有 `[12]` 与 `[12v2]` 两版，只给一份注入 S##E## 标记，
+  另一份保持原名或移走，避免极影视出现重复集。
+
+## 与极影视入库配套
+
+改名只解决识别。整包里的 NC.Ver/PV/menu/特典 等非正片视频会污染剧集列表——
+把它们移出库扫描路径（如 `qb/Downloads/_Extras/<剧季>/`），正片留原地。
