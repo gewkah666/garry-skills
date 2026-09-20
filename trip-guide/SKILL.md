@@ -5,7 +5,8 @@ description: >
   行程骨架直接从 trip-manager（Outlook 未来行程 / Notion 已归档行程）导入，agent 按章节做研究填 guide.json
   （每日行程 + 站点要点/时限/转场车程/手绘路线图、景点、美食、体验、购物、出发前清单、当地须知、语言），
   validate_guide 审计后 build_guide 渲染，可发布到 Hermes dashboards 公网访问。
-  触发：御主说"做一份攻略 / 旅行手册 / guide / handbook"、"把川西行程整理成手册"。
+  分享链接还能开同行协作：同行者认领身份、各自勾物品清单、填忌口住宿偏好，数据存 Notion。
+  触发：御主说"做一份攻略 / 旅行手册 / guide / handbook"、"把川西行程整理成手册"、"让同行的人自己填物品清单 / 加入行程"。
 ---
 
 # 旅行手册 trip-guide
@@ -25,7 +26,8 @@ source ~/.hermes/trip-env.sh          # NOTION_TOKEN / MS_GRAPH_CLIENT_ID / AMAP
 2. 研究   agent 逐章填 guide.json（高德 MCP 查坐标营业信息，web 搜索查门票 / 管控 / 口碑，已有的 ~/xhs_trip 研究直接合并）
 3. 审计   validate_guide.py  硬伤（缺字段 / 套话）退出码 1；--strict 把 ⚠️ 也当硬伤
 4. 渲染   build_guide.py     guide.html；--open 本地预览；--serve-copy 复制到 trip-manager 的 travel-guide/ 手机局域网看
-5. 发布   publish_guide.py   上传 Hermes dashboards plugin → 公网 URL
+5. 发布   publish_guide.py   → 公网分享链接 /s/<slug>/?t=<token>（同行者直接打开）
+6. 协作   init_collab.py     可选：同行者从分享链接认领身份、各改各的物品清单与偏好（存 Notion）
 ```
 
 行程改了（Outlook 事件变动）只要 `init_guide.py --refresh-days`，其它章节内容保留。
@@ -87,12 +89,52 @@ python3 $G/build_guide.py output/chuanxi-2026/guide.json --serve-copy   # → tr
 ## 5. 发布
 
 ```bash
-python3 $G/publish_guide.py output/chuanxi-2026/guide.html --title "川西 · 国庆自驾"
+python3 $G/publish_guide.py output/chuanxi-2026/guide.html --title "川西 · 国庆自驾" --share
 ```
 
-对外分享（不需要 Phantom 令牌）：`publish_guide.py output/<slug>/guide.html --title … --share [slug]` 把同一份 HTML 再放一份到云 VM，链接形如 `http://101.43.41.167/s/<slug>/?t=<token>`，微信 / Safari 直接打开；再跑一次 `--share` 是原地更新、链接不变；`--revoke-share` 撤销。底层是 `~/Projects/phantom/phantom-infra/share.sh`（nginx `/s/` + token→slug map），http 明文、令牌就在 URL 里，只给手册 / 报告这类内容用。分享记录写在 `published.json` 的 `share` 字段。
+`--share` 把 HTML 放到云 VM，链接形如 `http://101.43.41.167/s/<slug>/?t=<token>`，微信 / Safari 直接打开；再跑一次是原地更新、**链接不变**；`--revoke-share` 撤销。底层是 `~/Projects/phantom/phantom-infra/share.sh`（nginx `/s/` + token→slug map）。http 明文、令牌就在 URL 里，只给手册这类内容用。记录写在 `published.json` 的 `share` 字段。
 
-走 dashboards skill 的上传契约（`API_SERVER_KEY` → `/api/plugins/dashboards/upload`），返回公网 URL；最终答复要给成可点的链接。
+**手册不再发 Hermes dashboards。** 以前两处各发一份，结果漂了（dashboards 那份一度停在四天前、不含同行协作代码）。手册的受众是同行者，分享链接你自己也能看，所以只留一处。报表类产物照旧走 dashboards skill，与手册无关。
+
+## 6. 同行协作（可选）
+
+分享链接打开时，「06 出发前」的**必带**一栏变成每人各自一份：同行者从下拉里认领身份，勾选 / 增删条目 / 填忌口住宿偏好，**唯一数据源是 Notion**，御主在表里实时看到。谁能出现在下拉里由御主控制（表里的「已加入」勾选框）。
+
+后端是 **dashboards 插件里的 relay**（`~/Projects/phantom/hermes-dashboards-plugin`，软链在 `~/.hermes/plugins/dashboards`）。那个插件是「Hermes 对外暴露层」：一半托管静态报表，一半就是这个 relay，共用同一个 provider 和 token 门。本 skill 只负责：建表、生成资源描述、页面渲染。
+
+```bash
+# 1. Notion 侧建表 + 建人（parent-page 用行程总览页的 id）
+python3 $G/init_collab.py init output/<slug>/guide.json --parent-page <page_id> --members "老王,小李"
+python3 $G/init_collab.py add   output/<slug>/guide.json "阿强"     # 加人（自动种物品清单）
+python3 $G/init_collab.py leave output/<slug>/guide.json "阿强"     # 移出认领下拉，数据保留
+python3 $G/init_collab.py seed  output/<slug>/guide.json --all      # prep.essentials 改了，补种给所有人
+python3 $G/init_collab.py list  output/<slug>/guide.json
+
+# 2. 建完表重新 build + share，页面才带上协作接线
+python3 $G/build_guide.py output/<slug>/guide.json
+python3 $G/publish_guide.py output/<slug>/guide.html --title "…" --share
+
+# 3. 把这趟行程注册进 notion-relay 插件的资源配置（600，不入库）
+python3 $G/collab_resource.py output/<slug>/guide.json | python3 -c "
+import json,sys,os
+res=json.load(sys.stdin); name=res.pop('name')
+p=os.path.expanduser('~/.hermes/notion-relay.json')
+cfg=json.load(open(p)) if os.path.exists(p) else {}
+cfg['notion_token']=os.environ['NOTION_TOKEN']; cfg.setdefault('resources',{})[name]=res
+json.dump(cfg,open(p,'w'),ensure_ascii=False,indent=2); os.chmod(p,0o600); print('已注册',name)"
+# 配置按 mtime 热重载，不用重启 Hermes；只有首次装插件才要 kickstart dashboard
+```
+
+要点：
+
+- **表结构**：database「<标题> · 同行准备」，一行一个人；属性 姓名 / 已加入 / 饮食忌口 / 住宿偏好 / 住宿备注 / 紧急联系人；行的正文是这个人的物品 `to_do` 清单，每条的灰色斜体尾巴是「为什么带」（`prep.essentials[].why` 种进去的）。御主直接在 Notion 里加行、改名、勾「已加入」即可，不必跑脚本——但手工建的行是空的，记得 `seed --all` 补物品。
+- **表单不硬编码**：页面按 relay 的 `/schema` 渲染，字段类型和 select 选项都从 Notion 的 database schema 读。想多开一个字段，在 Notion 里建好列 → 加进 `scripts/collab_resource.py` 的 `FIELDS` → 重新 `--register`，页面不用改。
+- **同一份 HTML 两处通用**：页面从自己 URL 的 `?t=` 取 token。分享副本带 token → 协作激活；dashboards 那份没有 token → 自动退回本机 localStorage 勾选。不需要 CORS，也不用构建两次。协作连不上（后端挂了 / 断网）同样退回本机，离线单文件永远能看。
+- **鉴权的四道闸在插件那边**，别在这个 skill 里试图绕过。改后端前先读 `hermes-dashboards-plugin/dashboard/relay_api.py` 头部和 `tests/test_relay.py` 的越权用例。
+- **后端跑在这台 Mac 上**（Hermes dashboard 进程，VM 经 Tailscale 回源）。笔记本睡了或掉线，同行者就改不了东西——页面会退回本机勾选，不白屏但协作停摆。出远门期间尤其注意。
+- **公网怎么过 Hermes 的门**：VM nginx 在 `/s/api/n/` 服务端注入 `API_SERVER_KEY` 并把 Host 改成 Hermes 的绑定地址，浏览器永远看不到那个 key。改 nginx 走 `phantom-infra/nginx/deploy.sh`。
+- **认领不做身份验证**：拿到链接的人可以认领名单里任何人（熟人团的取舍）。别把不想外传的东西放进这张表——「紧急联系人」同行者之间互相可见。
+- **改动后必测**：`~/.hermes/hermes-agent/venv/bin/python ~/Projects/phantom/hermes-dashboards-plugin/tests/test_relay.py`（34 个用例，假 Notion，快）＋ `node tests/browser_test.mjs <线上链接>`（真浏览器真 Notion）。测完记得把写进 Notion 的测试数据清掉。
 
 ## 文件
 
@@ -100,9 +142,14 @@ python3 $G/publish_guide.py output/chuanxi-2026/guide.html --title "川西 · �
 scripts/init_guide.py        骨架（复用 trip-manager/scripts 的 trip_common / build_data）
 scripts/validate_guide.py    审计
 scripts/build_guide.py       guide.json + assets/template.html → guide.html
-scripts/publish_guide.py     上传 dashboards / --share 公网分享副本
+scripts/publish_guide.py     发成公网分享链接（只此一路，不再发 dashboards）
 scripts/sync_outlook.py      guide.json 的每日行程 → Outlook 事件（删旧建新，先备份）
+scripts/init_collab.py       同行协作的 Notion 侧：建库 / 管名单 / 种物品清单
+scripts/collab_resource.py   吐出 notion-relay 插件的资源描述（写进 ~/.hermes/notion-relay.json）
 assets/template.html         渲染模板（window.GUIDE 注入）
+tests/browser_test.mjs       无头 Chrome 走同行者真实操作路径（认领→勾选→加删→偏好）
 references/content-model.md  各章内容契约、字段说明、研究标准
-output/<slug>/               guide.json / guide.html（个人数据，不必提交）
+output/<slug>/               guide.json / guide.html / collab.json（个人数据，不必提交）
 ```
+
+协作后端不在本仓库：`~/Projects/phantom/hermes-dashboards-plugin` 的 `dashboard/relay_*.py`（Hermes 插件，软链在 `~/.hermes/plugins/dashboards`）。

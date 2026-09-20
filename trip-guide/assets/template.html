@@ -162,6 +162,37 @@ details.fold .topic p{font-size:13.5px;color:var(--ink-2)}
 
 body{overflow-x:hidden}
 a,.src,.rich,.why,.primer li,.kv span,.note,.guard,.summary,.sum li,.fallback,.stop .cap,.list label span{overflow-wrap:anywhere}
+
+/* 同行协作（分享链接打开时才出现；离线 / 无 token 时整块不渲染，退回本机勾选） */
+.who{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.who p{font-size:13.5px;color:var(--ink-2);margin-bottom:12px}
+.who .pick{display:flex;flex-wrap:wrap;gap:8px}
+.who button{padding:9px 16px;border-radius:999px;border:1px solid var(--line);background:var(--paper);cursor:pointer;font-size:14px}
+.who button:hover{border-color:var(--ink)}
+.who button.guest{color:var(--muted)}
+.me-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;font-size:13.5px;color:var(--ink-2)}
+.me-bar b{color:var(--ink);font-size:15px}
+.me-bar .swap{margin-left:auto;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 12px;font-size:12px;cursor:pointer;color:var(--muted)}
+.list label .del{margin-left:auto;border:0;background:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;opacity:.5}
+.list label .del:hover{opacity:1;color:var(--accent)}
+.additem{display:flex;gap:8px;margin-top:8px}
+.additem input{flex:1;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;background:var(--card);color:var(--ink);font:inherit;font-size:14px}
+.additem button{padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+.pf{display:grid;gap:10px;margin-top:10px}
+.pf label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.pf input,.pf select{padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font:inherit;font-size:14px}
+.pf .ms{display:flex;flex-wrap:wrap;gap:6px}
+.pf .msi{display:inline-flex;flex-direction:row;align-items:center;gap:5px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);font-size:13px;cursor:pointer}
+.pf .msi input{padding:0;border:0;accent-color:var(--accent)}
+.pf .cbx{display:flex;align-items:center;height:38px}
+.pf .cbx input{width:18px;height:18px;padding:0;accent-color:var(--accent)}
+.mates{display:flex;flex-direction:column;gap:6px;margin-top:10px;font-size:13.5px}
+.mates .row2{display:flex;gap:10px;align-items:baseline;padding:8px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.mates .row2 b{flex:0 0 4.5em}
+.mates .row2 span{color:var(--ink-2)}
+.mates .row2 .none{color:var(--muted)}
+.syncing{font-size:11px;color:var(--muted);margin-left:6px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:999px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.25);max-width:88vw}
 a.lnk{font-size:.92em;white-space:nowrap}
 .ov{display:flex;flex-direction:column;gap:8px;margin:0 0 20px}
 .ov .row{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:12px;cursor:pointer}
@@ -367,7 +398,181 @@ function renderPrep(prep) {
   if (!prep || !(nz(prep.essentials) || nz(prep.confirm))) return '';
   const list = (items, grp) => `<div class="list">${items.map((it, i) => { const k = `${KEY}:prep:${grp}:${i}`; const on = store.get(k) === '1';
     return `<label class="${on ? 'done' : ''}"><input type="checkbox" data-k="${k}" ${on ? 'checked' : ''}><span>${rich(it.text || it)}${it.why || it.when ? `<small>${esc(it.why || it.when)}</small>` : ''}</span></label>`; }).join('')}</div>`;
-  return `<section class="ch" id="prep"><div class="ch-k">06</div><h2 class="ch-t">出发前<small>勾选状态保存在本机</small></h2><div class="two"><div><h3 class="sub">必带</h3>${list(prep.essentials || [], 'e')}</div><div><h3 class="sub">提前确认 / 预订</h3>${list(prep.confirm || [], 'c')}</div></div></section>`;
+  // 「必带」先按静态清单渲染（本机勾选）；分享链接打开时 initCollab() 会把这块换成
+  // 认领后的个人 Notion 清单。协作连不上就保持现状 —— 离线单文件永远能用。
+  const hint = collabOn() ? '每人一份 · 存在 Notion' : '勾选状态保存在本机';
+  return `<section class="ch" id="prep"><div class="ch-k">06</div><h2 class="ch-t">出发前<small>${hint}</small></h2><div class="two"><div><h3 class="sub">必带</h3><div id="prep-me">${list(prep.essentials || [], 'e')}</div></div><div><h3 class="sub">提前确认 / 预订</h3>${list(prep.confirm || [], 'c')}</div></div><div id="prep-mates"></div></section>`;
+}
+
+/* ---------- 同行协作：认领身份 + 各改各的那份 ----------
+   数据在 Notion，经 notion-relay 转发（~/Projects/notion-relay）。表单不硬编码字段，
+   按 /schema 返回的真实字段类型渲染 —— Notion 里加个字段、加个选项，这里自动跟上。 */
+const COLLAB = GUIDE?.collab || null;
+const SHARE_T = new URLSearchParams(location.search).get('t') || '';
+const collabOn = () => !!(COLLAB?.api && COLLAB?.resource && SHARE_T);
+let ME = null, SCHEMA = null, ROWS = [], STATIC_PREP = null;
+
+function toast(msg, ms = 2800) {
+  document.querySelector('.toast')?.remove();
+  const d = document.createElement('div'); d.className = 'toast'; d.textContent = msg;
+  document.body.appendChild(d); setTimeout(() => d.remove(), ms);
+}
+const note = (el, msg) => { const d = document.createElement('div'); d.className = 'muted'; d.style.marginBottom = '10px'; d.textContent = msg; el.prepend(d); };
+
+// 路径固定、id 走 query：后端是 Hermes 插件，而 Hermes 的 token 门是精确路径匹配，
+// 注册不了 /row/{id} 这种带变量的路由。
+async function capi(method, path, params = {}, body) {
+  const q = new URLSearchParams({ res: COLLAB.resource, t: SHARE_T, ...params });
+  const r = await fetch(`${COLLAB.api}/n${path}?${q}`,
+    { method, headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+  return d;
+}
+
+// 写队列：同一个对象连点只留最后一次，出站串行 —— 别把 Notion 的 3 req/s 打爆
+const OPS = new Map(); let draining = false;
+const syncing = on => { const s = document.getElementById('sync'); if (s) s.textContent = on ? '同步中…' : ''; };
+function queueOp(key, fn) { OPS.set(key, fn); drainOps(); }
+async function drainOps() {
+  if (draining) return; draining = true; syncing(true);
+  try {
+    while (OPS.size) {
+      const k = OPS.keys().next().value, fn = OPS.get(k); OPS.delete(k);
+      try { await fn(); } catch (e) { toast('没存上：' + e.message); }
+    }
+  } finally { draining = false; syncing(false); }
+}
+
+function renderWho(rows) {
+  return `<div class="who"><p>这份「必带」每人各有一份，存在 Notion 里，改完 admin 那边就能看到。<b>你是哪位？</b></p><div class="pick">${
+    rows.map(r => `<button data-claim="${esc(r.id)}">${esc(r.title)}</button>`).join('')
+  }<button class="guest" data-claim="guest">我是游客（只看）</button></div></div>`;
+}
+
+// 按 Notion 的真实字段类型出控件
+function fieldInput(f, val) {
+  const ph = f.placeholder ? ` placeholder="${esc(f.placeholder)}"` : '';
+  const nm = esc(f.name);
+  switch (f.type) {
+    case 'select':
+      return `<select data-pref="${nm}"><option value=""${!val ? ' selected' : ''}>—</option>${
+        (f.options || []).map(o => `<option value="${esc(o)}"${val === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+    case 'multi_select':
+      return `<span class="ms">${(f.options || []).map(o => `<label class="msi"><input type="checkbox" data-multi="${nm}" value="${esc(o)}"${(val || []).includes(o) ? ' checked' : ''}><span>${esc(o)}</span></label>`).join('')}</span>`;
+    case 'checkbox':
+      return `<span class="cbx"><input type="checkbox" data-pref="${nm}"${val ? ' checked' : ''}></span>`;
+    case 'number':
+      return `<input type="number" data-pref="${nm}" value="${val ?? ''}"${ph}>`;
+    case 'date':
+      return `<input type="date" data-pref="${nm}" value="${esc(val || '')}">`;
+    case 'url': case 'email': case 'phone_number':
+      return `<input type="${f.type === 'phone_number' ? 'tel' : f.type}" data-pref="${nm}" value="${esc(val || '')}"${ph}>`;
+    default:
+      return `<input data-pref="${nm}" value="${esc(val || '')}" maxlength="80"${ph}>`;
+  }
+}
+const prefValue = el => el.type === 'checkbox' ? el.checked
+  : el.type === 'number' ? (el.value === '' ? '' : Number(el.value)) : el.value;
+
+function renderMine(v) {
+  const kids = (v.children || []).map(i => `<label class="${i.checked ? 'done' : ''}"><input type="checkbox" data-item="${esc(i.id)}" ${i.checked ? 'checked' : ''}><span>${rich(i.text)}${i.note ? `<small>${esc(i.note)}</small>` : ''}</span>${SCHEMA?.children?.delete ? `<button class="del" data-del="${esc(i.id)}" title="删掉这条">×</button>` : ''}</label>`).join('');
+  const add = SCHEMA?.children?.add
+    ? `<div class="additem"><input id="newitem" placeholder="加一条只属于你的（回车）" maxlength="60"><button data-add="1">加</button></div>` : '';
+  const fields = (SCHEMA?.fields || []).map(f =>
+    `<label>${esc(f.label || f.name)}${fieldInput(f, (v.fields || {})[f.name])}</label>`).join('');
+  return `<div class="me-bar">当前身份 <b>${esc(v.title)}</b><span class="syncing" id="sync"></span><button class="swap" data-claim="reset">换人</button></div>
+    <div class="list">${kids}</div>${add}
+    ${fields ? `<h3 class="sub">我的信息</h3><div class="pf">${fields}</div>` : ''}`;
+}
+
+function renderMates(rows, meId) {
+  if (!rows.length) return '';
+  const labels = Object.fromEntries((SCHEMA?.fields || []).map(f => [f.name, f.label || f.name]));
+  const shown = v => Array.isArray(v) ? v.join(' / ') : v === true ? '✓' : String(v);
+  const has = v => !(v === '' || v === null || v === undefined || v === false || (Array.isArray(v) && !v.length));
+  return `<h3 class="sub">同行一览</h3><div class="mates">${rows.map(r => {
+    const bits = Object.entries(r.fields || {}).filter(([, v]) => has(v)).map(([k, v]) => `${labels[k] || k} ${shown(v)}`);
+    return `<div class="row2"><b>${esc(r.title)}${r.id === meId ? ' · 你' : ''}</b>${bits.length ? `<span>${esc(bits.join(' · '))}</span>` : '<span class="none">还没填</span>'}</div>`;
+  }).join('')}</div>`;
+}
+
+async function refreshRows() {
+  try { ROWS = (await capi('GET', '/rows')).rows || []; } catch { return; }
+  const el = document.getElementById('prep-mates');
+  if (el) el.innerHTML = renderMates(ROWS, ME?.id);
+}
+
+async function loadMine() {
+  const v = await capi('GET', '/row', { id: ME.id });
+  ME.name = v.title;
+  document.getElementById('prep-me').innerHTML = renderMine(v);
+  refreshRows();
+}
+
+async function addItem() {
+  const inp = document.getElementById('newitem'); if (!inp) return;
+  const text = inp.value.trim(); if (!text) return;
+  inp.value = ''; inp.disabled = true;
+  try { await capi('POST', '/child', { row: ME.id }, { text }); await loadMine(); }
+  catch (e) { toast('加不上：' + e.message); inp.value = text; }
+  finally { const i2 = document.getElementById('newitem'); if (i2) { i2.disabled = false; i2.focus(); } }
+}
+
+async function initCollab() {
+  if (!collabOn()) return;
+  const host = document.getElementById('prep-me'); if (!host) return;
+  STATIC_PREP ??= host.innerHTML;
+  try {
+    SCHEMA = await capi('GET', '/schema');
+    ROWS = (await capi('GET', '/rows')).rows || [];
+  } catch (e) { host.innerHTML = STATIC_PREP; note(host, `同行协作连不上（${e.message}）：下面的勾选只存在这台设备上。`); return; }
+  if (!ROWS.length) { host.innerHTML = STATIC_PREP; note(host, '名单还空着 —— admin 在 Notion 的表里加人、勾上「已加入」，这里就会出现。'); return; }
+
+  const saved = store.get(KEY + ':me');
+  if (saved === 'guest') {
+    host.innerHTML = `<div class="me-bar">游客模式 · 只看<button class="swap" data-claim="reset">我是同行者</button></div>` + STATIC_PREP;
+    return refreshRows();
+  }
+  const hit = ROWS.find(r => r.id === saved);
+  if (!hit) {
+    if (saved) store.set(KEY + ':me', '');           // admin 把人移出名单了
+    host.innerHTML = renderWho(ROWS);
+    if (saved) note(host, '你之前认领的身份已不在名单里，重新选一个。');
+    return refreshRows();
+  }
+  ME = { id: hit.id, name: hit.title };
+  try { await loadMine(); }
+  catch (e) { host.innerHTML = STATIC_PREP; note(host, `读不到你那份（${e.message}）：先用本机勾选。`); }
+}
+
+function wireCollab() {
+  const sec = document.getElementById('prep'); if (!sec) return;
+  sec.addEventListener('click', e => {
+    const c = e.target.closest('[data-claim]');
+    if (c) { store.set(KEY + ':me', c.dataset.claim === 'reset' ? '' : c.dataset.claim); ME = null; return initCollab(); }
+    const d = e.target.closest('[data-del]');
+    if (d) { e.preventDefault(); const id = d.dataset.del, label = d.closest('label');
+      label.style.opacity = '.3';
+      queueOp('del:' + id, async () => { await capi('DELETE', '/child', { id }); label.remove(); });
+      return; }
+    if (e.target.closest('[data-add]')) addItem();
+  });
+  sec.addEventListener('keydown', e => { if (e.target.id === 'newitem' && e.key === 'Enter') { e.preventDefault(); addItem(); } });
+  sec.addEventListener('change', e => {
+    const box = e.target.closest('input[data-item]');
+    if (box) { const id = box.dataset.item, on = box.checked;
+      box.closest('label').classList.toggle('done', on);
+      return queueOp('item:' + id, () => capi('PATCH', '/child', { id }, { checked: on })); }
+    if (!ME) return;
+    const ms = e.target.closest('[data-multi]');
+    if (ms) { const n = ms.dataset.multi;
+      const vals = [...sec.querySelectorAll(`[data-multi="${CSS.escape(n)}"]`)].filter(x => x.checked).map(x => x.value);
+      return queueOp('pref:' + n, () => capi('PATCH', '/row', { id: ME.id }, { fields: { [n]: vals } }).then(refreshRows)); }
+    const pf = e.target.closest('[data-pref]');
+    if (pf) queueOp('pref:' + pf.dataset.pref,
+      () => capi('PATCH', '/row', { id: ME.id }, { fields: { [pf.dataset.pref]: prefValue(pf) } }).then(refreshRows));
+  });
 }
 
 function renderNotes(notes) {
@@ -415,6 +620,8 @@ function init() {
     const b = e.target.closest('[data-done]'); if (!b) return;
     const k = `${KEY}:done:${b.dataset.done.replace(/\|/g, ':')}`; const on = store.get(k) === '1'; store.set(k, on ? '0' : '1'); b.textContent = on ? '✓ 到了' : '已到'; b.closest('.card').style.opacity = on ? '' : '.55'; });
   document.getElementById('main').addEventListener('change', e => { const c = e.target.closest('input[data-k]'); if (!c) return; store.set(c.dataset.k, c.checked ? '1' : '0'); c.closest('label').classList.toggle('done', c.checked); });
+
+  wireCollab(); initCollab();
 
   document.getElementById('foot').innerHTML = `${nz(m.sources) ? `来源<ul>${m.sources.map(s => `<li>${srcHtml(s)}</li>`).join('')}</ul>` : ''}<div style="margin-top:10px">营业时间、票价、管控会变，出发前按各卡片来源再核一遍 · 生成 ${esc(m.generated_at || '')}${m.built_at ? ' · 渲染 ' + esc(m.built_at) : ''} · trip-guide</div>`;
 }
