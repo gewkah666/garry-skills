@@ -4,13 +4,14 @@ description: >
   Run the user's daily development-task workflow on their Notion "Tasks" database
   via the Notion MCP server (no default project — resolve it from the repo / cwd / task
   wording, see "Which project"). Use to: plan the day (create
-  today's tasks each morning); start a task (stamp start time, Status→In Progress);
+  today's tasks each morning and immediately create a matching Git branch for every
+  task); start a task (stamp start time, Status→In Progress);
   log progress into the task's Notion page; finish a task (stamp end time + duration,
   Status→Done); detect when work drifts off the task and offer to create a new one;
-  and track several tasks running at once. Triggered by /dev-tasks or any add / list /
-  start / finish / log / "plan my day" / "what am I working on" request. Optional
-  TTS voice notifications via the miloco-tts skill (xiaomi speakers / TV) — see the
-  "Voice notifications" section.
+  track several tasks running at once; and remove a task's dedicated Git worktree after
+  its Review is explicitly approved. Triggered by /dev-tasks or any add / list / start /
+  finish / log / review / "plan my day" / "what am I working on" request. Optional
+  announcements via `phantom_notify` (see the "Announcements" section).
 ---
 
 # Dev Tasks (Notion) — daily workflow
@@ -83,26 +84,43 @@ By task state:
 - **In progress** (started): `Completed On` = **start datetime**, a point to the minute
   (`is_datetime = 1`) = the **current system clock** (read it — never invent) **or a time the
   user specifies**.
-- **Done** (finished): `Completed On` = a **range [start, end]** — both datetimes to the
-  minute, `end` **estimated from the workload** with **`end − start` ≥ 30 min** (minimum
-  block, so tasks don't blur on the calendar); use real elapsed time if longer. State the
-  chosen block/duration in one line so the user can override.
-    - **Research / investigation task** → place the block **later** (default around **18:00**,
-      or ask) so the calendar doesn't read as "just finished". See memory
-      `dev-tasks-research-completion-time`.
+- **Done** (finished): `Completed On` = a **range [start, end]** at the **actual times** —
+  `start` = the real start, `end` = the real finish read from the **current system clock**
+  (never invent, never estimate from workload). If real elapsed < 30 min, extend the
+  calendar-facing `end` to `start + 30 min` (display floor so tasks don't blur on the
+  calendar), but the Work-log `Duration` line always records the **real** elapsed minutes.
+  **Never** move the block to a different time of day — it sits where the work actually
+  happened (user correction 2026-08-10; the old "estimate end from workload" and "nudge
+  research tasks to ~18:00" rules are retired).
 
-Also mirror the block in the page `## Work log` (`- **Start** …`, `- **End** … — summary`,
-`- **Duration** …`) and the day index — honest prose that stays put even if a research task's
-calendar-facing `Completed On` is nudged later. Read the clock with PowerShell
+Also mirror the times in the page `## Work log` (`- **Start** …`, `- **End** … — summary`,
+`- **Duration** …` = real elapsed, minutes-honest) and the day index. The **only** allowed
+divergence from reality is the 30-min calendar display floor above. Read the clock with PowerShell
 `Get-Date -Format 'yyyy-MM-dd HH:mm'` or Bash `date '+%Y-%m-%d %H:%M'` (local timezone).
 Concurrent tasks' blocks may overlap — that's fine.
 
-## "What's active now" — ask Notion, keep no local index
+## Local day index (the "what's active now" tracker)
 
-Hermes' Notion MCP can query the data source, so the active set is always a query, never a
-file: filter the Tasks data source `3f2616ff-95e7-837b-8444-074b10e56064` by
-`Status = In Progress` (optionally narrowed to the current project). Today's plan is the same
-query with `Completed On` on today's date. There is no second copy of the truth anywhere.
+Because `query-data-sources` is unavailable on this plan (see List/review), Notion can't be
+asked "which tasks are In Progress?". Maintain a small local file as the durable index of
+today's plan and active set. **The Notion page is the system of record for the full log;
+this file is only a fast index.**
+
+Path: `C:\Users\echoG\.claude\dev-tasks\<YYYY-MM-DD>.md` (create the folder if missing).
+Format — one row per task, updated as tasks start/finish:
+
+```
+# Dev tasks — 2026-07-14
+| Task | Notion URL | Status | Start | End | Dur | Project | Repo | Branch |
+|---|---|---|---|---|---|---|---|---|
+| Fix SSE reconnect | https://app.notion.com/p/… | In Progress | 09:12 |  |  | Peppy | mmwave-dashboard | task/fix-sse-a1b2c3 |
+```
+
+At the start of a working session, read today's file (if present) to recover the active
+set. If it's missing but the user has clearly been mid-work, offer to reconstruct it. When
+updating an older index without `Repo` / `Branch` columns, add them and preserve its rows.
+
+---
 
 ## Task granularity — keep it coarse (~30 min+)
 
@@ -114,20 +132,54 @@ micro-items, propose merging them into a handful of ~30-min+ tasks before creati
 toward fewer, larger tasks. (This is about task size only — start/end times are still stamped
 to the minute.)
 
+## Mandatory Git branch at Notion task creation
+
+Every Notion task created by this skill must immediately receive its own Git branch. There
+are no branchless task exceptions in this workflow. The Notion page and branch are one
+logical creation operation: do not report the task as created, announce a successful plan,
+or proceed to work until both exist.
+
+1. Before writing to Notion, resolve the exact repository and intended base branch for each
+   task. Prefer the repository already in scope and its configured integration branch; if
+   several repositories are plausible or none is known, ask before creating the task.
+2. Create the Notion page first so its page ID can make the branch unique. Follow the
+   repository's branch convention; when none exists, use
+   `task/<ascii-task-slug>-<short-unique-page-id-suffix>` (at least 6 characters; extend it
+   on collision). Never reuse another task's branch.
+3. Create the branch without switching or modifying the user's primary worktree. Fetch the
+   intended remote base when available, then use an explicit start point, for example:
+   `git -C <repo-root> branch <branch> origin/<base>`. If there is no remote, use the verified
+   local base. Confirm the ref resolves with `git show-ref --verify refs/heads/<branch>`.
+4. Append `- **Branch** <branch> — repo <absolute repo root>; base <start point>` to the
+   Notion Work log and store the repository and branch in the local day index.
+
+If branch creation or verification fails after the Notion page exists, set that page to
+`Blocked`, append the exact failure to its Work log, update the day index, and announce the
+blocker. Do not silently use the base branch, create changes in the primary worktree, or call
+the task successfully created. Retry the same intended branch after resolving the problem.
+
 ## Scenario 1 — Morning planning ("plan my day" / a list of todos)
 
 1. Gather the day's intended tasks from the user (ask briefly if the list is vague). Keep
    them **coarse** (see Task granularity) — if the user lists many micro-items, propose
    merging them into a few ~30-min+ tasks before creating.
-2. For **each**, capture a one-line **Goal/scope** — this is the yardstick drift is measured
-   against later. Ask for it if the task title alone is ambiguous.
+2. For **each**, capture a one-line **Goal/scope** and resolve its repository/base branch per
+   **Mandatory Git branch at Notion task creation**. Ask if either is ambiguous.
 3. Batch-create them with `notion-create-pages`, parent
    `{ type: "data_source_id", data_source_id: "3f2616ff-95e7-837b-8444-074b10e56064" }`,
    each with: `Task name`, `Status: "Not Started"`, `Project` (resolved per "Which project"), `Completed On` = today
    (date only), `Priority` if the user implies one, dev `Tags` when clearly applicable. Put the Goal/scope
    in the page `content` under a `## Goal` heading, and add an empty `## Work log` heading.
-4. Report back the created tasks as a Markdown list with clickable Notion links.
-5. **(Optional) Announcement** — if the user has announcements on (see "Announcements"),
+4. Immediately create and verify one dedicated branch per returned Notion page (per
+   **Mandatory Git branch at Notion task creation**), then write the branch/repository to
+   the page Work log and local day index. Handle any failure as `Blocked`; never leave it
+   unreported as a successful task creation.
+5. Report back the successfully created task+branch pairs as a Markdown list with clickable
+   Notion links. List blocked pairs separately with the failure.
+6. **(Optional) Announcement** — if announcements are on (see "Announcements"), only after
+   all branch attempts finish, announce the accurate result. Use the normal success phrase
+   only when every requested pair succeeded; otherwise announce the success count and the
+   blocked tasks. Normal success:
    `phantom_notify level=L1 kind=dev message="今天的任务已规划，共 N 个，第一个是 <task 1 title>"`.
 
 ## Scenario 2 — Start / execute / finish a task (time-tracked)
@@ -136,22 +188,73 @@ to the minute.)
 → `notion-update-page` `update_properties`
 `{ "Status": "In Progress", "date:Completed On:start": "<YYYY-MM-DDTHH:MM:00>", "date:Completed On:is_datetime": 1 }`
 (`Completed On` as a start point) → append to the page `## Work log` `- **Start** <YYYY-MM-DD HH:MM>`
-(`insert_content`, `position: end`).
+(`insert_content`, `position: end`) → set the day-index row Status `In Progress` and Start time.
 → **(Optional) Announcement** — if enabled, `phantom_notify level=L1 kind=dev message="开始任务 <task title>"`.
 
 **During:** append progress notes to the task's `## Work log` as bullets (what was done,
 decisions, blockers, links). Each entry should make it obvious which task it belongs to when
-several are open. Notion is the only system of record.
+several are open. Keep the system of record in Notion; keep the day index in sync for status.
+Three kinds of mid-task events are worth an **announcement** (optional — see "Announcements"),
+right after the Work-log line is written:
 
-**Finish:** derive the end per **Time rules** (end = start + workload effort, ≥30 min; read the
-`Completed On` start / Work-log Start back via `notion-fetch` if not in context) → append
+- **Problem / blocker hit** — an error that stops progress, a missing credential/permission,
+  a failing build, an unexpected dead end:
+  `phantom_notify level=L1 kind=dev message="任务 <task title> 遇到问题：<一句话问题>"`
+- **Phase completion** — a distinct sub-deliverable done while the task keeps running
+  (e.g. 调研完成开始写方案 / 后端通了开始联调):
+  `phantom_notify level=L1 kind=dev message="任务 <task title> 阶段性完成：<一句话成果>"`
+- **Key finding / discovery** — evidence that changes the picture: a root cause pinned down,
+  data that overturns an assumption, an unexpected decisive measurement (e.g. 根因锁定 /
+  实测推翻假设 / 关键实证出炉). Announce it the moment it lands, not at task end:
+  `phantom_notify level=L1 kind=dev message="任务 <task title> 关键发现：<一句话发现>"`
+
+Announce genuine events, not every log line — a problem worth interrupting the user for, a
+phase worth a checkpoint, a finding that changes what happens next. Routine progress bullets
+stay silent.
+
+**Finish:** end = the **current system clock** (read it; see Time rules — `Duration` is real
+elapsed, the calendar range gets the 30-min display floor; read the `Completed On` start /
+Work-log Start back via `notion-fetch` if not in context) → append
 `- **End** <ts> — <1–3 line summary of what was done>` and `- **Duration** <Xh Ym>` to the Work
 log → set `Completed On` as a **range [start, end]** →
 `update_properties`
 `{ "Status": "Done", "date:Completed On:start": "<startISO>", "date:Completed On:end": "<endISO>", "date:Completed On:is_datetime": 1 }`
-(for a **research/investigation** task, place the block **later**, default ~18:00) →
-**(Optional) Announcement** — if enabled, `phantom_notify level=L1 kind=dev message="任务 <task title> 完成，用时 <Xh Ym>"`
+(the block stays at the actual working time — no repositioning for any task type) → update the
+day-index row (End, Dur, Status Done) → **(Optional) Announcement** — if enabled:
+`phantom_notify level=L1 kind=dev message="任务 <task title> 完成，用时 <Xh Ym>"`
 → Confirm to the user with the link.
+
+**Any other status change** (→ Blocked / Testing / Review / back to Not Started / …):
+update Notion + the day index as usual, then announce it too (optional, if enabled) —
+`phantom_notify level=L1 kind=dev message="任务 <task title> 状态变为 <中文状态>"`
+(e.g. 已阻塞 / 测试中 / 待评审).
+
+**Review approved → remove the task worktree:** explicit user approval of a task in
+`Review` (for example, “Review 通过” / “验收通过” / “LGTM”) is the authorization to
+remove that task's dedicated Git worktree; do not ask for a second confirmation. Perform
+cleanup before marking the task `Done`:
+
+1. Resolve the worktree from the task's Work log/current task context and verify it with
+   `git worktree list --porcelain`. The target must be the reviewed task's dedicated
+   worktree, normally `<repo-root>/.tree/<task-slug>`; never remove the repository's primary
+   worktree or a path whose task/branch association is ambiguous. If the current working
+   directory is inside the target, first leave it and run cleanup from the repository root.
+2. Check `git status --short` in that worktree. Also verify the reviewed commits are merged
+   into the intended integration branch or are preserved on the expected remote branch.
+   If there are modified/untracked files, local-only commits, or uncertain integration,
+   **do not remove or force-remove** the worktree. Keep the task in `Review`, append a
+   blocker to the Work log, announce the problem, and tell the user exactly what remains.
+3. For a clean, verified target, run
+   `git -C <repo-root> worktree remove <absolute-worktree-path>` without `--force`, then
+   `git -C <repo-root> worktree prune`. Verify the path is absent from both the filesystem
+   and `git worktree list --porcelain`.
+4. Append `- **Worktree removed** <absolute path> — review approved; branch <branch> preserved`
+   to the Work log, then complete the normal `Done` status/day-index/announcement update.
+   Removing the worktree does **not** authorize deleting its local or remote branch; delete
+   a branch only when the user separately asks.
+
+For a task with no dedicated worktree, log that cleanup was not applicable and proceed to
+`Done`. A worktree-removal failure must not be hidden or bypassed with raw filesystem deletion.
 
 ## Scenario 3 — Drift detection
 
@@ -188,7 +291,9 @@ tangents; flag genuine scope changes. If unsure, ask rather than reclassify sile
 ## Building-block operations
 
 ### Add task(s)
-`notion-create-pages`, `data_source_id` parent as above. Example page:
+Use **Mandatory Git branch at Notion task creation** for every task; a Notion
+page without its verified branch is incomplete. Call `notion-create-pages` with the
+`data_source_id` parent as above. Example page:
 ```json
 {
   "properties": {
@@ -273,6 +378,10 @@ user has said "播报" / "voice on" / "announce", or set a standing preference. 
 ask once at the start of the day and remember the answer for the day. An announcement is
 never in the critical path: if `phantom_notify` reports deferred/denied, the Notion update
 still completes and nothing is retried.
+
+Announceable events (see the scenarios): plan created, task started, task finished (研究
+完成 for research tasks), any other status transition, problem/blocker hit, phase
+completion, key finding/discovery, and drift detection.
 
 ---
 
