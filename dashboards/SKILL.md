@@ -132,7 +132,7 @@ http://localhost:9119/api/plugins/dashboards/page/<id>
 ## 配置
 
 `scripts/config.py`:
-- `DASHBOARDS_PLUGIN_URL`: 默认 `http://localhost:9119/api/plugins/dashboards`（Hermes dashboard 端口）；dashboard 绑定 WireGuard 地址时设为 `http://10.66.0.5:9119/api/plugins/dashboards`
+- `DASHBOARDS_PLUGIN_URL`: 默认 `http://localhost:9119/api/plugins/dashboards`（Hermes dashboard 端口）；dashboard 绑定 Tailscale 地址时设为 `http://100.67.170.59:9119/api/plugins/dashboards`
 - `DASHBOARDS_PAGE_BASE`: 默认 `/api/plugins/dashboards/page`；本机 Hermes 给 Phantom 使用时设为 `http://101.43.41.167:9118/api/plugins/dashboards/page`
 - 上传 token：优先 `HERMES_SESSION_TOKEN`，否则复用 gateway 已加载的 `API_SERVER_KEY`
 - `DASHBOARDS_DIR`: plugin 会写到这里，默认 `~/dashboards/`

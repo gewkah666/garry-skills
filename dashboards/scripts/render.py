@@ -307,8 +307,8 @@ def upload(html: str, dashboard_meta: dict[str, Any]) -> dict[str, Any]:
         "html": html,
         "meta": dashboard_meta,
     }
-    # The dashboard is a local/WireGuard service. macOS system proxy settings
-    # otherwise send 10.66.0.5 through the desktop HTTP proxy and return 502.
+    # The dashboard is a local/Tailscale service. macOS system proxy settings
+    # otherwise send 100.67.170.59 through the desktop HTTP proxy and return 502.
     session = requests.Session()
     session.trust_env = False
     resp = session.post(
