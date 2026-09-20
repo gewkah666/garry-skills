@@ -16,7 +16,7 @@ S=~/Projects/garry-skills/trip-manager/scripts
 source ~/.hermes/trip-env.sh          # NOTION_TOKEN / MS_GRAPH_CLIENT_ID / AMAP_API_KEY
 ```
 
-产物：`trip-guide/output/<slug>/guide.json`（唯一数据源，agent 直接编辑）→ `guide.html`（单文件，数据内嵌，离线可看）。
+产物：`trip-guide/output/<slug>/guide.json`（唯一数据源，agent 直接编辑）→ `guide.html`（单文件，数据内嵌，离线可看）。各卡 `source` 字段支持 markdown 链接（模板 srcHtml 渲染为可点 `<a target=_blank>`）——引用调研帖时把 `[♥赞数 标题](链接)` 附在 source 尾部，御主要求攻略必带来源原帖链接。
 
 ## 流程
 
@@ -29,6 +29,8 @@ source ~/.hermes/trip-env.sh          # NOTION_TOKEN / MS_GRAPH_CLIENT_ID / AMAP
 ```
 
 行程改了（Outlook 事件变动）只要 `init_guide.py --refresh-days`，其它章节内容保留。
+
+反过来，在 guide.json 里改了行程（时间 / 加站 / 砍站）要回写日历：`python3 $G/sync_outlook.py output/<slug>/guide.json --project "川西 10.1-10.7" [--dry-run]`——先备份并删掉行程日期内的旧行程事件（权益活动不动），再按 `days[].stops[]` 逐站建事件（标题 `DayN-k: icon 名称`，body 写项目 / 起终点 / 交通 / 停留 / 要点 / 时限 / 费用）。之后 `trip_check.py` 照常能查。两边改完以 guide.json 为准，别在 Outlook 里手改再 --refresh-days 覆盖。
 
 ## 1. 骨架
 
@@ -74,13 +76,21 @@ python3 $G/build_guide.py output/chuanxi-2026/guide.json --open
 python3 $G/build_guide.py output/chuanxi-2026/guide.json --serve-copy   # → trip-manager/travel-guide/guide.html，server.py 起来后手机访问 /guide.html
 ```
 
-页面：封面（中文标题 + ITINERARY + X天/X晚）→ 出行（航段 / 住宿，未确认标 pending）→ 01 每日行程（日 tab、总览、离线手绘路线 SVG、站点卡：停留 / 💡 要点 / ⚠️ 时限 / 转场车程 / 展开详情 / 高德 & Apple 导航）→ 02 景点 → 03 美食 → 04 体验 → 05 购物 → 06 出发前（可勾选，本地保存）→ 07 当地须知（5 折）→ 08 语言 → 来源。空章节自动隐藏；深色 / 浅色切换；可打印。
+图片：`meta.cover` / `sights[].image` / `food.restaurants[].image` / `days[].stops[].image` 填 guide.json 旁的相对路径（如 `img/seda.jpg`，720px 宽 · JPEG q58 ≈ 40–80 KB 一张），`build_guide.py` 会转成 data URI 内嵌，单文件离线仍可看；同级 `image_credit` / `meta.cover_credit` 渲染为图注（Wikimedia Commons 的 CC 图必须写「作者 · 许可 · Wikimedia Commons」）。商用图库和小红书图不要用；找不到实景就留空，别用 AI 生成图冒充实景。
+
+页面：封面 → 出行（航段 / 住宿：note + `alternatives[]` 备选酒店折叠清单）→ 01 每日行程（先是全程一览表：每天一行 路线 / 公里 / 驾驶 / 海拔 / 住宿，点行切日；再日 tab、summary 按句拆成短行、「今日红线」汇总各站 guard、站点卡：停留 / 💡 要点 / ⚠️ 时限 / 转场车程 / 展开详情 / 高德 & Apple 导航；`days[]` 可选 `km / alt / drive` 渲染为 🛣里程 / ⛰海拔 / 驾驶时长）→ 02 景点（已排进行程的只留一句话 + 折叠票务 + 「看 DayN」回链，避免与站点卡重复；备选才出完整卡）→ 03 美食 → 04 体验 → 05 购物 → 06 出发前（可勾选）→ 07 费用预算（可选章 `g.budget = {intro, lines:[{item,est,note,status}], total, source}`）→ 08 当地须知（5 折）→ 09 语言 → 来源。空章节自动隐藏；深色 / 浅色切换；可打印。
+
+模板通用规则：所有 `source` 折叠在「来源」后面；正文里的裸 URL 自动缩成「域名 ↗」链接；文本里的 `(lng,lat)` 坐标串不显示；转场分钟数显示成「x 小时 y 分」；手绘路线 SVG 已去掉（日头的文字路线链足够）。
+
+发布更新：`publish_guide.py guide.html --title … --update <dash_id>` 原地覆盖 ~/dashboards/<id>/index.html **链接不变**（id 在 output/<slug>/published.json）。公网页有 Phantom token 门，curl 直接验证会 401——以本地 ~/dashboards/<id>/index.html 与产物比对为准，别误判发布失败。
 
 ## 5. 发布
 
 ```bash
 python3 $G/publish_guide.py output/chuanxi-2026/guide.html --title "川西 · 国庆自驾"
 ```
+
+对外分享（不需要 Phantom 令牌）：`publish_guide.py output/<slug>/guide.html --title … --share [slug]` 把同一份 HTML 再放一份到云 VM，链接形如 `http://101.43.41.167/s/<slug>/?t=<token>`，微信 / Safari 直接打开；再跑一次 `--share` 是原地更新、链接不变；`--revoke-share` 撤销。底层是 `~/Projects/phantom/phantom-infra/share.sh`（nginx `/s/` + token→slug map），http 明文、令牌就在 URL 里，只给手册 / 报告这类内容用。分享记录写在 `published.json` 的 `share` 字段。
 
 走 dashboards skill 的上传契约（`API_SERVER_KEY` → `/api/plugins/dashboards/upload`），返回公网 URL；最终答复要给成可点的链接。
 
@@ -90,7 +100,8 @@ python3 $G/publish_guide.py output/chuanxi-2026/guide.html --title "川西 · �
 scripts/init_guide.py        骨架（复用 trip-manager/scripts 的 trip_common / build_data）
 scripts/validate_guide.py    审计
 scripts/build_guide.py       guide.json + assets/template.html → guide.html
-scripts/publish_guide.py     上传 dashboards
+scripts/publish_guide.py     上传 dashboards / --share 公网分享副本
+scripts/sync_outlook.py      guide.json 的每日行程 → Outlook 事件（删旧建新，先备份）
 assets/template.html         渲染模板（window.GUIDE 注入）
 references/content-model.md  各章内容契约、字段说明、研究标准
 output/<slug>/               guide.json / guide.html（个人数据，不必提交）

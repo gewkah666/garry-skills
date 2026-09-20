@@ -22,6 +22,28 @@ TEMPLATE = HERE.parent / "assets" / "template.html"
 SERVE_DIR = HERE.parent.parent / "trip-manager" / "travel-guide"
 
 
+def inline_images(obj, base: Path) -> int:
+    """image / cover 字段若是 guide.json 旁的相对路径，读文件转成 data URI，保持单文件离线可看。"""
+    import base64, mimetypes
+    n = 0
+    if isinstance(obj, dict):
+        for k, v in list(obj.items()):
+            if k in ("image", "cover") and isinstance(v, str) and v and not v.startswith(("http://", "https://", "data:")):
+                p = base / v
+                if p.exists():
+                    mime = mimetypes.guess_type(p.name)[0] or "image/jpeg"
+                    obj[k] = f"data:{mime};base64,{base64.b64encode(p.read_bytes()).decode()}"
+                    n += 1
+                else:
+                    print(f"⚠️ 图片不存在: {v}")
+            else:
+                n += inline_images(v, base)
+    elif isinstance(obj, list):
+        for x in obj:
+            n += inline_images(x, base)
+    return n
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("guide")
@@ -33,6 +55,9 @@ def main():
     src = Path(args.guide)
     guide = json.loads(src.read_text())
     guide.setdefault("meta", {})["built_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    n = inline_images(guide, src.parent)
+    if n:
+        print(f"  内嵌图片 {n} 张（guide.json 里的相对路径 → data URI）")
     payload = json.dumps(guide, ensure_ascii=False).replace("</", "<\\/")
     html = TEMPLATE.read_text()
     if "/*__GUIDE_JSON__*/" not in html:

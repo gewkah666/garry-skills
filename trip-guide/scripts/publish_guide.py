@@ -20,13 +20,48 @@ DASH_SCRIPTS = HERE.parent.parent / "dashboards" / "scripts"
 sys.path.insert(0, str(DASH_SCRIPTS))
 
 
+SHARE_SH = Path.home() / "Projects" / "phantom" / "phantom-infra" / "share.sh"
+
+
+def share(args):
+    """有链接就能看的副本：VM nginx /s/<slug>/?t=<token>，不经家里 gatekeeper。"""
+    import subprocess
+    html = Path(args.html)
+    rec = html.with_name("published.json")
+    old = json.loads(rec.read_text()) if rec.exists() else {}
+    slug = args.share or old.get("share", {}).get("slug") or html.parent.name
+    if not SHARE_SH.exists():
+        sys.exit(f"❌ 找不到 {SHARE_SH}")
+    if args.revoke_share:
+        subprocess.run([str(SHARE_SH), "revoke", slug], check=True)
+        old.pop("share", None)
+        rec.write_text(json.dumps(old, ensure_ascii=False, indent=2))
+        print(f"✓ 已撤销分享 {slug}")
+        return
+    mode = "update" if old.get("share", {}).get("slug") == slug else "add"
+    out = subprocess.run([str(SHARE_SH), mode, slug, str(html)], check=True, capture_output=True, text=True).stdout
+    url = next((l.strip() for l in out.splitlines() if l.startswith("http")), "")
+    if not url:
+        sys.exit(f"❌ share.sh 没有返回链接：{out}")
+    old["share"] = {"slug": slug, "url": url}
+    rec.write_text(json.dumps(old, ensure_ascii=False, indent=2))
+    print(f"✓ 分享链接（{'链接不变' if mode == 'update' else '新链接'}）: {url}")
+    print("  http 明文、令牌在 URL 里：只适合手册这类内容；撤销用 --revoke-share")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("html")
     ap.add_argument("--title", required=True)
     ap.add_argument("--description", default="旅行手册（trip-guide）")
     ap.add_argument("--update", metavar="DASH_ID", help="原地覆盖已发布的报告（plugin 与本机同一台时直接写 ~/dashboards/<id>/index.html，链接不变）")
+    ap.add_argument("--share", nargs="?", const="", metavar="SLUG", help="另发一份「有链接就能看」的副本到云 VM（phantom-infra/share.sh，无需 Phantom 令牌）；slug 默认取 output/<slug>；已分享过则原地更新、链接不变")
+    ap.add_argument("--revoke-share", action="store_true", help="撤销分享链接并删掉 VM 上的副本")
     args = ap.parse_args()
+
+    if args.share is not None or args.revoke_share:
+        share(args)
+        return
 
     if args.update:
         import os, shutil

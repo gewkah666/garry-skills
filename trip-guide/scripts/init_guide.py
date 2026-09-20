@@ -76,7 +76,12 @@ def load_days(args) -> tuple:
 
 
 def add_transfers(days: List[dict]) -> int:
-    """相邻两站都有坐标 → 查高德驾车（分钟 / 公里），写到前一站的 transfer"""
+    """相邻两站都有坐标 → 查高德驾车（分钟 / 公里），写到前一站的 transfer
+
+    坑（2026-09-10 修）：a→b 是"从 a 出发去 b"的驾车段。若 b 是飞机/高铁段
+    （transport 含 ✈️/🚄），它的坐标是落地城市——高德会跨省算出 1800km+ 的
+    "车程"（川西 Day8 天府→萧山被算成 1204min/1837km）。跨大交通的相邻对直接跳过。
+    """
     n = 0
     for d in days:
         stops = d["stops"]
@@ -84,6 +89,8 @@ def add_transfers(days: List[dict]) -> int:
             if a.get("transfer") or not (a.get("coords") and b.get("coords")):
                 continue
             if a["coords"] == b["coords"]:
+                continue
+            if any(k in str(b.get("transport", "")) for k in ("飞机", "✈", "高铁", "火车", "🚄", "🚆")):
                 continue
             r = driving_minutes(a["coords"], b["coords"])
             if r:

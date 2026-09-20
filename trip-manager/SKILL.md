@@ -46,7 +46,7 @@ Master 提到某段行程时用 `trip_modify.py 关键词 …`：未来（Outloo
 | `时限` | 最晚离开 / 排队上限 / 换乘缓冲，借自 time_guard | 14:00 前必须出沟，否则到不了八美 | 站点卡 ⚠️、检查汇总 |
 | `费用` | 预计花费 | 门票 150 + 观光车 70 | 站点卡 |
 
-写事件时的规矩（从 personalized-travel-guide 借来的、对个人行程有用的部分）：
+写事件时的规矩（要点/时限 直接映射手册 `practical_note` / `time_guard`，源自已安装的 `build-personalized-travel-guide` skill，见「攻略页分工」）：
 
 - **不编造**：坐标、车程、营业时间要么用高德工具查到，要么写「待确认」，不要凭印象填。
 - **交通段必须有起终点**（元数据或 `A→B` 标题），否则检查脚本会把它当景点算车程；「前往 X / 去 X」开头的标题会被自动识别为交通段。
@@ -131,6 +131,11 @@ python3 $S/trip_modify.py "Day2" --body "返程遇暴雪，绕道 G317"         
 | 交通（元数据 / category / emoji） | 交通方式 select |
 | 每段：`🏔 08:30 双桥沟 · 四姑娘山` + 子项 ⏱ 停留 / 💡 要点 / ⚠️ 时限 / 💰 费用 / 自由描述 | 正文 bullet |
 | `项目：` | 父页（类型=足迹）+ 「上级 项目」relation + 正文 mention |
+
+## 已知坑（2026-09-10 修）
+- init_guide.py 转场计算会把「站点→机场起飞」跨飞机段的相邻站拿去查高德驾车，算出 1800km+ 假车程（川西 Day8 天府→萧山 1204min/1837km）。已修：b 段 transport 含飞机/高铁即跳过。手工删 guide.json 脏 transfer 后必须重跑 build_guide。
+- validate_guide 的 ⛔「赶不及」多为真行程冲突（事件间隙没留够车程），不是数据 bug——报御主决策，勿为过校验改数据。
+- 攻略手册渲染归 trip-guide skill（output/<slug>/guide.json 唯一数据源），本 skill 只管日历/检查/归档；产物 `--serve-copy` 会同步到 travel-guide/guide.html 供手机局域网访问。
 
 ## cron
 

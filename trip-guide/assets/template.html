@@ -72,9 +72,14 @@ h3.sub{font-size:17px;margin:26px 0 12px}
 .muted{color:var(--muted);font-size:13px}
 .src{font-size:11.5px;color:var(--muted);margin-top:8px}
 .src::before{content:"来源 · "}
+details.srcf .src::before{content:""}
+details.srcf{margin-top:8px}details.srcf summary{cursor:pointer;font-size:11.5px;color:var(--muted);list-style:none}details.srcf summary::-webkit-details-marker{display:none}details.srcf summary::before{content:"▸ "}details.srcf[open] summary::before{content:"▾ "}details.srcf .src{margin-top:4px}
 .btn{font-size:13px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;gap:4px;cursor:pointer}
 .btn.p{background:var(--accent);border-color:var(--accent);color:#fff}
 .img{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:10px;margin-bottom:10px;background:var(--line)}
+.fig{margin:0 0 8px}.fig .img{margin-bottom:3px}.credit{font-size:10.5px;color:var(--muted);line-height:1.3;margin-bottom:8px}
+.stop .card .fig .img{aspect-ratio:16/9}
+.cover .cover-credit{position:absolute;right:14px;bottom:8px;font-size:10.5px;color:#cfc4ae;opacity:.7}
 
 /* 出行框架 */
 .legs .card{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
@@ -155,6 +160,19 @@ details.fold .topic p{font-size:13.5px;color:var(--ink-2)}
 .lang{display:grid;grid-template-columns:1fr auto 1fr;gap:6px 12px;font-size:14px;align-items:baseline}
 .lang .say{color:var(--muted);font-size:12.5px}
 
+body{overflow-x:hidden}
+a,.src,.rich,.why,.primer li,.kv span,.note,.guard,.summary,.sum li,.fallback,.stop .cap,.list label span{overflow-wrap:anywhere}
+a.lnk{font-size:.92em;white-space:nowrap}
+.ov{display:flex;flex-direction:column;gap:8px;margin:0 0 20px}
+.ov .row{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.ov .row:hover{border-color:var(--ink-2)}
+.ov .d{font-weight:700;font-size:13px;white-space:nowrap;line-height:1.3;min-width:52px}.ov .d small{display:block;color:var(--muted);font-weight:400;font-size:11px}
+.ov .t{font-size:14px;font-weight:600;line-height:1.35}.ov .m{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
+.ov .row.today{box-shadow:0 0 0 2px var(--gold)}
+.ov .row.on{border-color:var(--ink)}
+.sum{margin-top:10px;color:var(--ink-2);font-size:14.5px;max-width:700px;list-style:none}.sum li{padding-left:14px;position:relative;margin-bottom:4px}.sum li::before{content:"–";position:absolute;left:0;color:var(--muted)}
+.redl{margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--warn-bg);color:var(--warn-ink);font-size:13.5px}.redl b{display:block;font-size:13px;margin-bottom:6px}.redl .g{display:grid;grid-template-columns:auto 1fr;gap:4px 10px}.redl .g span:nth-child(odd){font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.sight.compact{padding:12px 14px}.sight.compact h4{font-size:15px}.sight.compact .why{margin-top:4px;font-size:13px}.sight.compact details.more{margin-top:6px}.sight.compact .acts{margin-top:8px}
 footer{padding:40px 0 calc(40px + env(safe-area-inset-bottom));color:var(--muted);font-size:12px;line-height:1.8}
 footer ul{margin:8px 0 0 18px}
 @media (prefers-reduced-motion:reduce){.day{animation:none}}
@@ -182,7 +200,12 @@ footer ul{margin:8px 0 0 18px}
 <script>
 const GUIDE = /*__GUIDE_JSON__*/null;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const rich = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+const stripCoords = s => String(s ?? '').replace(/\s*[（(]\s*-?\d{2,3}\.\d{3,}\s*[,，]\s*-?\d{2,3}\.\d{3,}\s*[)）]/g, '');
+const linkify = h => h.replace(/(^|[^"'>=\w])(https?:\/\/[^\s<>"'）)；;，,]+)/g, (m, pre, u) => { let host = '链接'; try { host = new URL(u.replace(/&amp;/g, '&')).hostname.replace(/^(www|m|touch|mm)\./, ''); } catch {} return `${pre}<a class="lnk" href="${u}" target="_blank" rel="noopener">${host} ↗</a>`; });
+const rich = s => linkify(esc(stripCoords(s)).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>'));
+const fmtMin = m => { m = +m || 0; return m >= 60 ? `${Math.floor(m / 60)} 小时${m % 60 ? ' ' + (m % 60) + ' 分' : ''}` : `${m} 分钟`; };
+const srcBlock = s => s ? `<details class="srcf"><summary>来源</summary><div class="src">${srcHtml(s)}</div></details>` : '';
+const srcHtml = s => linkify(esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>'));
 const nz = v => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length);
 const fmtDate = s => { if (!s) return ''; const d = new Date(s); return isNaN(d) ? s : `${d.getMonth()+1}月${d.getDate()}日`; };
 const wk = s => { const d = new Date(s); return isNaN(d) ? '' : '周' + '日一二三四五六'[d.getDay()]; };
@@ -231,22 +254,44 @@ function stopCard(s, day, idx) {
   if (s.cost) chips.push(`💰 ${esc(s.cost)}`);
   if (s.status === 'pending') chips.push('<span class="chip pending">坐标待确认</span>');
   const tr = s.transfer && idx < day.stops.length - 1 && !s.is_transit
-    ? `<div class="transfer">🚗 到下一站约 ${s.transfer.minutes} 分钟${s.transfer.km ? ` · ${s.transfer.km} km` : ''}</div>` : '';
+    ? `<div class="transfer">🚗 到下一站约 ${fmtMin(s.transfer.minutes)}${s.transfer.km ? ` · ${Math.round(s.transfer.km)} km` : ''}</div>` : '';
   return `<div class="stop"><div class="t"><b>${esc(s.time || '—')}</b>${esc(s.end_time || '')}</div>
     <div class="card ${s.is_transit ? 'transit' : ''}" style="${done ? 'opacity:.55' : ''}">
+      ${img(s.image, s.name, s.image_credit)}
       <div class="name">${esc(s.icon || '📍')} ${esc(s.name)}</div>
       ${s.is_transit && !/→|->/.test(s.name) ? `<div class="cap">${esc(s.origin || '')} → ${esc(s.destination || '')}</div>` : (s.caption ? `<div class="cap">${esc(s.caption)}</div>` : '')}
       ${chips.length ? `<div class="chips">${chips.map(c => c.startsWith('<span') ? c : `<span class="chip">${c}</span>`).join('')}</div>` : ''}
       ${s.note ? `<div class="note">💡 ${rich(s.note)}</div>` : ''}
       ${s.guard ? `<div class="guard">⚠️ ${rich(s.guard)}</div>` : ''}
       ${s.details?.length ? `<details class="more"><summary>详情</summary>${richBlock(s.details)}</details>` : ''}
-      ${s.source ? `<div class="src">${esc(s.source)}</div>` : ''}
+      ${srcBlock(s.source)}
       <div class="acts">
         ${s.is_transit && !s.coords ? '' : `<a class="btn p" href="${nav(s)}">🧭 高德</a>`}
         ${apple(s) ? `<a class="btn" href="${apple(s)}">🍎 Apple</a>` : ''}
         ${s.is_transit ? '' : `<button class="btn" data-done="${esc(day.date)}|${esc(s.time)}|${esc(s.name)}">${done ? '已到' : '✓ 到了'}</button>`}
       </div>
     </div></div>${tr}`;
+}
+
+function sumList(s) {
+  if (!s) return '';
+  const parts = String(s).split(/(?<=[。；;])\s*|\n+/).map(x => x.trim()).filter(Boolean);
+  if (parts.length < 2) return `<div class="summary">${rich(s)}</div>`;
+  return `<ul class="sum">${parts.slice(0, 5).map(x => `<li>${rich(x)}</li>`).join('')}</ul>`;
+}
+function redLines(d) {
+  const g = (d.stops || []).filter(s => s.guard).slice(0, 4);
+  if (!g.length) return '';
+  return `<div class="redl"><b>⏰ 今日红线</b><div class="g">${g.map(s => `<span>${esc(s.time || '')}</span><span>${rich(s.guard)}</span>`).join('')}</div></div>`;
+}
+function renderOverview(days, stays, cur) {
+  if (days.length < 2) return '';
+  const today = todayStr();
+  const stayOf = d => (stays || []).find(s => s.from === d.date);
+  const short = s => String(s || '').split(/[（(]/)[0].trim();
+  return `<div class="ov" id="ov">${days.map((d, i) => { const st = stayOf(d);
+    const meta = [d.km ? `🛣 ${d.km} km` : '', d.drive ? `🚗 ${short(d.drive)}` : '', d.alt ? `⛰ ${short(d.alt)}` : '', st ? `🛏 ${short(st.name)}` : ''].filter(Boolean).join(' · ');
+    return `<div class="row ${d.date === today ? 'today' : ''} ${i === cur ? 'on' : ''}" data-i="${i}"><div class="d">${esc(d.day || 'D' + (i + 1))}<small>${esc(fmtDate(d.date))} ${wk(d.date)}</small></div><div><div class="t">${esc(d.icon || '')} ${esc(String(d.title || '').replace(/\s*[（(]\d+\s*站[)）]\s*$/, ''))}</div>${meta ? `<div class="m">${esc(meta)}</div>` : ''}</div></div>`; }).join('')}</div>`;
 }
 
 function renderDays(days) {
@@ -257,39 +302,48 @@ function renderDays(days) {
   const tabs = days.map((d, i) => `<div class="tab ${i === idx ? 'on' : ''} ${d.date === today ? 'today' : ''}" data-i="${i}">${esc(d.icon || '📍')} ${esc(d.day || 'D' + (i+1))}<small>${esc(fmtDate(d.date))} ${wk(d.date)}</small></div>`).join('');
   const panels = days.map((d, i) => `<div class="day ${i === idx ? 'on' : ''}" data-i="${i}">
     <div class="day-head"><h3>${esc(d.icon || '')} ${esc(d.day || '')} · ${esc(d.title)}</h3>
-      <div class="meta">${esc(fmtDate(d.date))} ${wk(d.date)}${d.area ? ' · ' + esc(d.area) : ''}${d.transport ? ' · ' + esc(d.transport) : ''}${(n => n ? ` · ${n} 站` : '')(d.stops.filter(s => !s.is_transit).length)}</div>
+      <div class="meta">${esc(fmtDate(d.date))} ${wk(d.date)}${d.area ? ' · ' + esc(d.area) : ''}${d.transport ? ' · ' + esc(d.transport) : ''}${(n => n ? ` · ${n} 站` : '')(d.stops.filter(s => !s.is_transit).length)}${d.km ? ` · 🛣 ${d.km} km` : ''}${d.alt ? ` · ⛰ ${esc(d.alt)}` : ''}</div>
+      ${d.drive ? `<div class="muted" style="font-size:12.5px;margin-top:2px">🚗 驾驶 ${esc(d.drive)}</div>` : ''}
       ${d.route?.length ? `<div class="route">${d.route.map(esc).join(' → ')}</div>` : ''}
-      ${d.summary ? `<div class="summary">${rich(d.summary)}</div>` : ''}
+      ${sumList(d.summary)}
+      ${redLines(d)}
     </div>
-    ${miniRoute(d)}
     <div class="stops">${d.stops.map((s, k) => stopCard(s, d, k)).join('')}</div>
     ${d.photo?.length ? `<div class="photo"><h3 class="sub">📸 今天怎么拍</h3><div class="grid">${d.photo.map(p => `<div class="card"><b>${esc(p.when || '')}</b><div class="muted">${esc(p.where || '')}</div><div style="margin-top:6px;font-size:13.5px">${rich(p.how || '')}</div></div>`).join('')}</div></div>` : ''}
     ${d.fallback ? `<div class="fallback">${rich(d.fallback)}</div>` : ''}
     ${d.notion_url ? `<div class="src" style="margin-top:14px"><a href="${esc(d.notion_url)}" target="_blank">Notion 页 ↗</a></div>` : ''}
   </div>`).join('');
-  return `<section class="ch" id="days"><div class="ch-k">01</div><h2 class="ch-t">每日行程<small>${days.length} 天</small></h2><div class="tabs" id="tabs">${tabs}</div><div id="panels">${panels}</div></section>`;
+  return `<section class="ch" id="days"><div class="ch-k">01</div><h2 class="ch-t">每日行程<small>${days.length} 天</small></h2>${renderOverview(days, GUIDE.stays || [], idx)}<div class="tabs" id="tabs">${tabs}</div><div id="panels">${panels}</div></section>`;
 }
 
 function renderLegs(legs, stays) {
   if (!nz(legs) && !nz(stays)) return '';
   const L = (legs || []).map(l => `<div class="card"><div class="type">${esc((l.type || '🚗').split(' ')[0])}</div><div><b>${esc(l.from)} → ${esc(l.to)}</b>${pend(l.status)}<div class="t">${esc(l.depart?.replace('T', ' ') || '')}${l.arrive ? ' → ' + esc(l.arrive.replace('T', ' ')) : ''}${l.ref ? ' · ' + esc(l.ref) : ''}</div>${l.note ? `<div class="muted">${rich(l.note)}</div>` : ''}</div></div>`).join('');
-  const S = (stays || []).map(s => `<div class="card"><div class="type">🛏</div><div><b>${esc(s.name || '待定')}</b>${pend(s.status)}<div class="t">${esc(fmtDate(s.from))}${s.to ? ' → ' + esc(fmtDate(s.to)) : ''}${s.area ? ' · ' + esc(s.area) : ''}</div>${s.address ? `<div class="muted">${esc(s.address)}</div>` : ''}${s.note ? `<div class="muted">${rich(s.note)}</div>` : ''}</div></div>`).join('');
+  const S = (stays || []).map(s => `<div class="card"><div class="type">🛏</div><div><b>${esc(s.name || '待定')}</b>${pend(s.status)}<div class="t">${esc(fmtDate(s.from))}${s.to ? ' → ' + esc(fmtDate(s.to)) : ''}${s.area ? ' · ' + esc(s.area) : ''}</div>${s.address ? `<div class="muted">${esc(s.address)}</div>` : ''}${s.note ? `<div class="muted">${rich(s.note)}</div>` : ''}${s.alternatives?.length ? `<details class="more"><summary>备选 ${s.alternatives.length} 家</summary><ul>${s.alternatives.map(a => `<li>${rich(a)}</li>`).join('')}</ul></details>` : ''}</div></div>`).join('');
   return `<section class="ch legs" id="legs"><div class="ch-k">出行</div><h2 class="ch-t">交通与住宿</h2>${L ? `<div class="grid">${L}</div>` : ''}${S ? `<h3 class="sub">住宿</h3><div class="grid">${S}</div>` : ''}</section>`;
 }
 
 function kv(pairs) { const f = pairs.filter(([, v]) => nz(v)); return f.length ? `<div class="kv">${f.map(([k, v]) => `<span>${k}</span><span>${rich(v)}</span>`).join('')}</div>` : ''; }
-function img(u, alt) { return u ? `<img class="img" src="${esc(u)}" alt="${esc(alt || '')}" loading="lazy">` : ''; }
+function img(u, alt, credit) { return u ? `<figure class="fig"><img class="img" src="${esc(u)}" alt="${esc(alt || '')}" loading="lazy">${credit ? `<figcaption class="credit">📷 ${esc(credit)}</figcaption>` : ''}</figure>` : ''; }
 
 function renderSights(sights) {
   if (!nz(sights)) return '';
-  const card = s => `<div class="card sight">${img(s.image, s.name)}<h4>${esc(s.name)}${s.status === 'optional' ? '<span class="badge opt">备选</span>' : (s.day ? `<span class="badge">${esc(s.day)}</span>` : '')}</h4>${s.local_name ? `<div class="muted">${esc(s.local_name)}</div>` : ''}${s.why ? `<div class="why">${rich(s.why)}</div>` : ''}${kv([['开放', s.hours], ['建议', s.duration], ['最佳', s.best_time], ['门票', s.ticket], ['注意', s.caution], ['位置', s.area]])}<div class="acts"><a class="btn" href="${nav(s)}">🧭 导航</a></div>${s.source ? `<div class="src">${esc(s.source)}</div>` : ''}</div>`;
+  const days = GUIDE.days || [];
+  const norm = s => String(s || '').replace(/[·\s（(）)]/g, '');
+  const findDay = s => { const n = norm(s.name); if (!n) return -1;
+    const byDay = days.findIndex(d => d.day && s.day && d.day === s.day); if (byDay >= 0) return byDay;
+    for (const transit of [false, true]) for (let i = 0; i < days.length; i++) for (const st of days[i].stops || []) { if (!!st.is_transit !== transit) continue; const a = norm(st.place), b = norm(st.name); if ((a && (a.includes(n) || n.includes(a))) || (b && b.includes(n))) return i; }
+    return -1; };
+  const compact = (s, i) => `<div class="card sight compact"><h4>${esc(s.name)}<span class="badge">${esc(days[i].day || 'Day' + i)}</span></h4>${s.why ? `<div class="why">${rich(s.why)}</div>` : ''}<details class="more"><summary>开放 · 门票 · 注意</summary>${kv([['开放', s.hours], ['建议', s.duration], ['最佳', s.best_time], ['门票', s.ticket], ['注意', s.caution], ['位置', s.area]])}${srcBlock(s.source)}</details><div class="acts"><a class="btn" href="#${encodeURIComponent(days[i].day || days[i].date)}" data-day="${i}">📅 看 ${esc(days[i].day || '')}</a><a class="btn" href="${nav(s)}">🧭 导航</a></div></div>`;
+  const card = s => `<div class="card sight">${img(s.image, s.name, s.image_credit)}<h4>${esc(s.name)}${s.status === 'optional' ? '<span class="badge opt">备选</span>' : (s.day ? `<span class="badge">${esc(s.day)}</span>` : '')}</h4>${s.local_name ? `<div class="muted">${esc(s.local_name)}</div>` : ''}${s.why ? `<div class="why">${rich(s.why)}</div>` : ''}${kv([['开放', s.hours], ['建议', s.duration], ['最佳', s.best_time], ['门票', s.ticket], ['注意', s.caution], ['位置', s.area]])}<div class="acts"><a class="btn" href="${nav(s)}">🧭 导航</a></div>${srcBlock(s.source)}</div>`;
   const sch = sights.filter(s => s.status !== 'optional'), opt = sights.filter(s => s.status === 'optional');
-  return `<section class="ch" id="sights"><div class="ch-k">02</div><h2 class="ch-t">景点<small>${sights.length} 处</small></h2><div class="grid">${sch.map(card).join('')}</div>${opt.length ? `<h3 class="sub">备选</h3><div class="grid">${opt.map(card).join('')}</div>` : ''}</section>`;
+  const schHtml = sch.map(s => { const i = findDay(s); return i >= 0 ? compact(s, i) : card(s); }).join('');
+  return `<section class="ch" id="sights"><div class="ch-k">02</div><h2 class="ch-t">景点<small>${sights.length} 处</small></h2>${sch.length ? `<h3 class="sub" style="margin-top:0">已排进行程<span class="muted" style="font-weight:400;margin-left:8px">门票、开放时间在各日站点卡里；这里只留一句话和回链</span></h3><div class="grid">${schHtml}</div>` : ''}${opt.length ? `<h3 class="sub">备选 · 顺路或有空再去</h3><div class="grid">${opt.map(card).join('')}</div>` : ''}</section>`;
 }
 
 function renderFood(food) {
   if (!food || !(nz(food.primer) || nz(food.snacks) || nz(food.restaurants) || nz(food.chains))) return '';
-  const rest = r => `<div class="card rest">${img(r.image, r.name)}<h4>${esc(r.name)}${r.day ? `<span class="badge">${esc(r.day)}</span>` : ''}</h4><div class="chips">${[r.cuisine, r.scene, r.price].filter(nz).map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>${kv([['招牌', r.dishes], ['营业', r.hours], ['位置', r.area]])}<div class="acts"><a class="btn" href="${nav(r)}">🧭 导航</a></div>${r.source ? `<div class="src">${esc(r.source)}</div>` : ''}</div>`;
+  const rest = r => `<div class="card rest">${img(r.image, r.name, r.image_credit)}<h4>${esc(r.name)}${r.day ? `<span class="badge">${esc(r.day)}</span>` : ''}</h4><div class="chips">${[r.cuisine, r.scene, r.price].filter(nz).map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>${kv([['招牌', r.dishes], ['营业', r.hours], ['位置', r.area]])}<div class="acts"><a class="btn" href="${nav(r)}">🧭 导航</a></div>${srcBlock(r.source)}</div>`;
   return `<section class="ch" id="food"><div class="ch-k">03</div><h2 class="ch-t">美食</h2>
     ${nz(food.primer) ? `<div class="card"><b>点单前先知道</b><ul class="primer" style="margin-top:8px">${food.primer.map(p => `<li>${rich(p)}</li>`).join('')}</ul></div>` : ''}
     ${nz(food.snacks) ? `<h3 class="sub">小吃</h3><div class="grid">${food.snacks.map(s => `<div class="card"><h4>${esc(s.name)}</h4>${kv([['是什么', s.what], ['哪里有', s.where], ['怎么点', s.how]])}</div>`).join('')}</div>` : ''}
@@ -301,12 +355,12 @@ function renderFood(food) {
 function renderExp(items) {
   if (!nz(items)) return '';
   const groups = {}; items.forEach(e => (groups[e.category || '其它'] ||= []).push(e));
-  return `<section class="ch" id="exp"><div class="ch-k">04</div><h2 class="ch-t">体验</h2>${Object.entries(groups).map(([g, list]) => `<h3 class="sub">${esc(g)}</h3><div class="grid">${list.map(e => `<div class="card"><h4>${esc(e.name)}</h4><div class="why">${rich(e.what || '')}</div>${kv([['在哪', e.where], ['何时', e.when], ['费用', e.cost], ['预约', e.book]])}${e.source ? `<div class="src">${esc(e.source)}</div>` : ''}</div>`).join('')}</div>`).join('')}</section>`;
+  return `<section class="ch" id="exp"><div class="ch-k">04</div><h2 class="ch-t">体验</h2>${Object.entries(groups).map(([g, list]) => `<h3 class="sub">${esc(g)}</h3><div class="grid">${list.map(e => `<div class="card"><h4>${esc(e.name)}</h4><div class="why">${rich(e.what || '')}</div>${kv([['在哪', e.where], ['何时', e.when], ['费用', e.cost], ['预约', e.book]])}${srcBlock(e.source)}</div>`).join('')}</div>`).join('')}</section>`;
 }
 
 function renderShop(items) {
   if (!nz(items)) return '';
-  return `<section class="ch" id="shop"><div class="ch-k">05</div><h2 class="ch-t">购物与伴手礼</h2><div class="grid">${items.map(s => `<div class="card"><h4>${esc(s.name)}${s.souvenir ? '<span class="badge">伴手礼</span>' : ''}</h4><div class="chips">${[s.type, s.area].filter(nz).map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>${kv([['买什么', s.what], ['注意', s.note]])}${s.source ? `<div class="src">${esc(s.source)}</div>` : ''}</div>`).join('')}</div></section>`;
+  return `<section class="ch" id="shop"><div class="ch-k">05</div><h2 class="ch-t">购物与伴手礼</h2><div class="grid">${items.map(s => `<div class="card"><h4>${esc(s.name)}${s.souvenir ? '<span class="badge">伴手礼</span>' : ''}</h4><div class="chips">${[s.type, s.area].filter(nz).map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>${kv([['买什么', s.what], ['注意', s.note]])}${srcBlock(s.source)}</div>`).join('')}</div></section>`;
 }
 
 function renderPrep(prep) {
@@ -319,12 +373,17 @@ function renderPrep(prep) {
 function renderNotes(notes) {
   const folds = [['weather', '🌤 天气与穿衣'], ['culture', '🙏 文化与礼仪'], ['transport', '🚗 当地交通'], ['safety', '🩺 安全与健康'], ['payment', '💳 支付与通讯']].filter(([k]) => nz(notes?.[k]));
   if (!folds.length) return '';
-  return `<section class="ch" id="notes"><div class="ch-k">07</div><h2 class="ch-t">当地须知</h2>${folds.map(([k, t], i) => `<details class="fold" ${i === 0 ? 'open' : ''}><summary>${t}</summary><div class="body">${notes[k].map(n => `<div class="topic"><b>${esc(n.title)}</b><p>${rich(n.text)}</p></div>`).join('')}</div></details>`).join('')}</section>`;
+  return `<section class="ch" id="notes"><div class="ch-k">08</div><h2 class="ch-t">当地须知</h2>${folds.map(([k, t], i) => `<details class="fold" ${i === 0 ? 'open' : ''}><summary>${t}</summary><div class="body">${notes[k].map(n => `<div class="topic"><b>${esc(n.title)}</b><p>${rich(n.text)}</p></div>`).join('')}</div></details>`).join('')}</section>`;
+}
+
+function renderBudget(b) {
+  if (!b || !(b.lines || []).length) return '';
+  return `<section class="ch" id="budget"><div class="ch-k">07</div><h2 class="ch-t">费用预算<small>5 人合计</small></h2>${b.intro ? `<div class="summary">${rich(b.intro)}</div>` : ''}<div class="card" style="margin-top:10px"><table style="width:100%;border-collapse:collapse;font-size:13.5px">${b.lines.map(l => `<tr style="border-bottom:1px solid var(--line)"><td style="padding:8px 6px"><b>${esc(l.item)}</b>${l.note ? `<div class="muted" style="font-size:12px;margin-top:2px">${rich(l.note)}</div>` : ''}</td><td style="padding:8px 6px;text-align:right;white-space:nowrap"><b>${esc(l.est)}</b>${l.status ? `<div class="muted" style="font-size:11px">${esc(l.status)}</div>` : ''}</td></tr>`).join('')}<tr><td style="padding:10px 6px"><b>💰 合计</b></td><td style="padding:10px 6px;text-align:right"><b>${esc(b.total)}</b></td></tr></table></div>${b.source ? `<div class="src">${esc(b.source)}</div>` : ''}</section>`;
 }
 
 function renderLang(groups) {
   if (!nz(groups)) return '';
-  return `<section class="ch" id="lang"><div class="ch-k">08</div><h2 class="ch-t">语言</h2>${groups.map((g, i) => `<details class="fold" ${i === 0 ? 'open' : ''}><summary>${esc(g.group)}</summary><div class="body"><div class="lang">${(g.items || []).map(it => `<span>${esc(it.term)}</span><span class="say">${esc(it.say || '')}</span><span>${esc(it.meaning || '')}</span>`).join('')}</div></div></details>`).join('')}</section>`;
+  return `<section class="ch" id="lang"><div class="ch-k">09</div><h2 class="ch-t">语言</h2>${groups.map((g, i) => `<details class="fold" ${i === 0 ? 'open' : ''}><summary>${esc(g.group)}</summary><div class="body"><div class="lang">${(g.items || []).map(it => `<span>${esc(it.term)}</span><span class="say">${esc(it.say || '')}</span><span>${esc(it.meaning || '')}</span>`).join('')}</div></div></details>`).join('')}</section>`;
 }
 
 function init() {
@@ -335,9 +394,9 @@ function init() {
   const nights = m.start && m.end ? Math.round((new Date(m.end) - new Date(m.start)) / 864e5) : 0;
   document.getElementById('c-sub').textContent = [m.destination, m.vehicle].filter(nz).join(' · ');
   document.getElementById('c-meta').innerHTML = [['日期', `${fmtDate(m.start)} – ${fmtDate(m.end)}`], ['时长', nights ? `${nights + 1} 天 / ${nights} 晚` : ''], ['同行', m.travelers], ['节奏', m.pace]].filter(([, v]) => nz(v)).map(([k, v]) => `<div>${k}<b>${esc(v)}</b></div>`).join('');
-  if (m.cover) { const c = document.getElementById('cover'); c.classList.add('has-img'); c.style.backgroundImage = `url("${m.cover}")`; }
+  if (m.cover) { const c = document.getElementById('cover'); c.classList.add('has-img'); c.style.backgroundImage = `url("${m.cover}")`; if (m.cover_credit) { const cc = document.createElement('div'); cc.className = 'cover-credit'; cc.textContent = '📷 ' + m.cover_credit; c.appendChild(cc); } }
 
-  document.getElementById('main').innerHTML = [renderLegs(g.legs, g.stays), renderDays(g.days || []), renderSights(g.sights), renderFood(g.food), renderExp(g.experiences), renderShop(g.shopping), renderPrep(g.prep), renderNotes(g.notes), renderLang(g.language)].join('');
+  document.getElementById('main').innerHTML = [renderLegs(g.legs, g.stays), renderDays(g.days || []), renderSights(g.sights), renderFood(g.food), renderExp(g.experiences), renderShop(g.shopping), renderPrep(g.prep), renderBudget(g.budget), renderNotes(g.notes), renderLang(g.language)].join('');
 
   const secs = [...document.querySelectorAll('section.ch')];
   const toc = document.getElementById('toc-in');
@@ -348,14 +407,16 @@ function init() {
   const saved = store.get(KEY + ':theme'); if (saved) document.documentElement.dataset.theme = saved;
   document.getElementById('theme').onclick = () => { const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); const nx = cur === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = nx; store.set(KEY + ':theme', nx); };
 
-  document.getElementById('tabs')?.addEventListener('click', e => { const t = e.target.closest('.tab'); if (!t) return;
-    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t)); document.querySelectorAll('.day').forEach(p => p.classList.toggle('on', p.dataset.i === t.dataset.i));
-    history.replaceState(null, '', '#' + encodeURIComponent((g.days[+t.dataset.i].day || g.days[+t.dataset.i].date))); });
-  document.getElementById('main').addEventListener('click', e => { const b = e.target.closest('[data-done]'); if (!b) return;
+  const showDay = i => { document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', +x.dataset.i === i)); document.querySelectorAll('.day').forEach(p => p.classList.toggle('on', +p.dataset.i === i)); document.querySelectorAll('#ov .row').forEach(r => r.classList.toggle('on', +r.dataset.i === i));
+    history.replaceState(null, '', '#' + encodeURIComponent((g.days[i].day || g.days[i].date))); };
+  document.getElementById('tabs')?.addEventListener('click', e => { const t = e.target.closest('.tab'); if (!t) return; showDay(+t.dataset.i); });
+  document.getElementById('ov')?.addEventListener('click', e => { const r = e.target.closest('.row'); if (!r) return; showDay(+r.dataset.i); document.getElementById('tabs').scrollIntoView({ block: 'start' }); });
+  document.getElementById('main').addEventListener('click', e => { const a = e.target.closest('a[data-day]'); if (a) { e.preventDefault(); showDay(+a.dataset.day); document.getElementById('tabs').scrollIntoView({ block: 'start' }); return; }
+    const b = e.target.closest('[data-done]'); if (!b) return;
     const k = `${KEY}:done:${b.dataset.done.replace(/\|/g, ':')}`; const on = store.get(k) === '1'; store.set(k, on ? '0' : '1'); b.textContent = on ? '✓ 到了' : '已到'; b.closest('.card').style.opacity = on ? '' : '.55'; });
   document.getElementById('main').addEventListener('change', e => { const c = e.target.closest('input[data-k]'); if (!c) return; store.set(c.dataset.k, c.checked ? '1' : '0'); c.closest('label').classList.toggle('done', c.checked); });
 
-  document.getElementById('foot').innerHTML = `${nz(m.sources) ? `来源<ul>${m.sources.map(s => `<li>${esc(s)}</li>`).join('')}</ul>` : ''}<div style="margin-top:10px">营业时间、票价、管控会变，出发前按各卡片来源再核一遍 · 生成 ${esc(m.generated_at || '')}${m.built_at ? ' · 渲染 ' + esc(m.built_at) : ''} · trip-guide</div>`;
+  document.getElementById('foot').innerHTML = `${nz(m.sources) ? `来源<ul>${m.sources.map(s => `<li>${srcHtml(s)}</li>`).join('')}</ul>` : ''}<div style="margin-top:10px">营业时间、票价、管控会变，出发前按各卡片来源再核一遍 · 生成 ${esc(m.generated_at || '')}${m.built_at ? ' · 渲染 ' + esc(m.built_at) : ''} · trip-guide</div>`;
 }
 init();
 </script>

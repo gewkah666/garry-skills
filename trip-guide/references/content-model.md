@@ -13,7 +13,7 @@
     "destination": "川西（甘孜 / 阿坝）",
     "start": "2026-09-29", "end": "2026-10-07",
     "travelers": "2 人 · 自驾", "pace": "紧凑 / 适中 / 松弛", "vehicle": "大众揽境四驱（一嗨）",
-    "cover": "",                        // 可选：封面图 URL 或相对路径
+    "cover": "img/cover.jpg", "cover_credit": "rheins · CC BY 3.0 · Wikimedia Commons",                        // 可选：封面图（相对路径 build 内嵌）+ 图注
     "sources": ["…"],                   // 全局来源；卡片级来源写在各自的 source
     "generated_at": "2026-09-07 17:00"
   },
@@ -55,6 +55,7 @@
     "guard": "12:30 前出沟，否则甲居藏寨来不及",                                       // 最晚离开 / 排队上限 / 换乘缓冲
     "transfer": { "minutes": 175, "km": 118.6 },                                       // 到下一站的驾车（init 自动算）
     "details": ["h2|⏱ 4h 速通动线", "bul|观光车直达最高点**红杉林** → 自上而下玩", "num|…"],   // 展开详情，h2|/bul|/num| 行，**粗体**
+    "image": "img/shuangqiao.jpg", "image_credit": "Polyphys · CC BY-SA 4.0 · Wikimedia Commons",   // 可选：站点实景图（guide.json 旁相对路径，build 内嵌为 data URI）+ 图注
     "source": "四姑娘山景区官方公众号 2026-08"
   }],
   "photo": [{ "when": "08:40 观光车上山", "where": "红杉林站下车往回看", "how": "逆光拍雪山剪影，长焦压缩" }],  // 每天 2–3 条，各天不同
