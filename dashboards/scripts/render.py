@@ -11,7 +11,7 @@ Usage:
   2. fetch data (Notion MCP / file)
   3. build Plotly figure
   4. render HTML from template
-  5. POST to plugin /api/plugins/dashboards/upload
+  5. POST to plugin /api/plugins/phantom-hermes-plugin/upload
   6. print public URL
 """
 from __future__ import annotations

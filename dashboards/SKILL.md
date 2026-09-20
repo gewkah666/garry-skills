@@ -1,6 +1,6 @@
 ---
 name: dashboards
-description: 通用数据可视化 skill。从 Notion 拉数据 → 智能识别报表需求（天/周/月/年/对比/分布/趋势，不固定维度）→ 用 Plotly 生成交互式 HTML 报表 → 通过 Hermes dashboards plugin 上传，公网可访问。Notion 当数据库（用户录入，skill 转换）、Hermes dashboards plugin 当服务层负责托管和静态文件访问。触发：用户说"生成 X 报告"、"看看 Y 数据"、"做个 Z 可视化"或粘贴数据要求录入 Notion。
+description: 通用数据可视化 skill。从 Notion 拉数据 → 智能识别报表需求（天/周/月/年/对比/分布/趋势，不固定维度）→ 用 Plotly 生成交互式 HTML 报表 → 通过 Hermes 的 phantom-hermes-plugin 上传，公网可访问。Notion 当数据库（用户录入，skill 转换）、Hermes 的 phantom-hermes-plugin 当服务层负责托管和静态文件访问。触发：用户说"生成 X 报告"、"看看 Y 数据"、"做个 Z 可视化"或粘贴数据要求录入 Notion。
 version: 0.1.0
 author: Hermes Agent
 license: MIT
@@ -12,7 +12,7 @@ metadata:
 
 # Dashboards — 通用数据可视化
 
-把任意结构化数据 → 交互式 HTML 报表。Notion 是数据源，Plotly 是渲染引擎，Hermes dashboards plugin 是托管层。
+把任意结构化数据 → 交互式 HTML 报表。Notion 是数据源，Plotly 是渲染引擎，Hermes 的 phantom-hermes-plugin 是托管层。
 
 ## 三种工作模式
 
@@ -30,7 +30,7 @@ metadata:
 1. LLM 解析 query → 数据需求（date range、metric、group_by、chart_type）
 2. 调 Notion MCP 拉数据（mcp__notion__API_query_a_data_source）
 3. 选模板或 LLM 生成 Python + Plotly 代码
-4. 渲染 HTML → 用 `API_SERVER_KEY` POST 到 plugin `/api/plugins/dashboards/upload`
+4. 渲染 HTML → 用 `API_SERVER_KEY` POST 到 plugin `/api/plugins/phantom-hermes-plugin/upload`
 5. 返回 `public_url`；最终答复必须把它写成可点击链接
 
 ### 2. 录入数据到 Notion
@@ -115,12 +115,12 @@ skill → plugin 上传时统一用：
 plugin 收到后渲染并保存为 `<DASHBOARDS_DIR>/<id>/index.html`，公网访问 URL 为：
 
 ```
-http://localhost:9119/api/plugins/dashboards/page/<id>
+http://localhost:9119/api/plugins/phantom-hermes-plugin/page/<id>
 ```
 
-（本机 Hermes 经 Phantom 入口暴露后：`http://101.43.41.167:9118/api/plugins/dashboards/page/<id>`
+（本机 Hermes 经 Phantom 入口暴露后：`http://101.43.41.167:9118/api/plugins/phantom-hermes-plugin/page/<id>`
 
-或列表页 `/api/plugins/dashboards/page/`）
+或列表页 `/api/plugins/phantom-hermes-plugin/page/`）
 
 ## 依赖
 
@@ -132,8 +132,8 @@ http://localhost:9119/api/plugins/dashboards/page/<id>
 ## 配置
 
 `scripts/config.py`:
-- `DASHBOARDS_PLUGIN_URL`: 默认 `http://localhost:9119/api/plugins/dashboards`（Hermes dashboard 端口）；dashboard 绑定 Tailscale 地址时设为 `http://100.67.170.59:9119/api/plugins/dashboards`
-- `DASHBOARDS_PAGE_BASE`: 默认 `/api/plugins/dashboards/page`；本机 Hermes 给 Phantom 使用时设为 `http://101.43.41.167:9118/api/plugins/dashboards/page`
+- `DASHBOARDS_PLUGIN_URL`: 默认 `http://localhost:9119/api/plugins/phantom-hermes-plugin`（Hermes dashboard 端口）；dashboard 绑定 Tailscale 地址时设为 `http://100.67.170.59:9119/api/plugins/phantom-hermes-plugin`
+- `DASHBOARDS_PAGE_BASE`: 默认 `/api/plugins/phantom-hermes-plugin/page`；本机 Hermes 给 Phantom 使用时设为 `http://101.43.41.167:9118/api/plugins/phantom-hermes-plugin/page`
 - 上传 token：优先 `HERMES_SESSION_TOKEN`，否则复用 gateway 已加载的 `API_SERVER_KEY`
 - `DASHBOARDS_DIR`: plugin 会写到这里，默认 `~/dashboards/`
 - 模板目录：`templates/`

@@ -49,7 +49,7 @@ def main() -> None:
                 items.append({
                     "id": d.name,
                     "title": meta.get("title", d.name),
-                    "public_url": f"/api/plugins/dashboards/page/{d.name}",
+                    "public_url": f"/api/plugins/phantom-hermes-plugin/page/{d.name}",
                     "created_at": meta.get("created_at", ""),
                     "source": "local-fallback",
                 })
