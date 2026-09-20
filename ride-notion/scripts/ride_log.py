@@ -21,11 +21,14 @@ ACTIVITY_ALIASES = {
     "健身": "健身", "gym": "健身", "力量": "健身", "撸铁": "健身",
     "跳绳": "跳绳", "rope": "跳绳",
     "瑜伽": "瑜伽", "yoga": "瑜伽",
+    "羽毛球": "羽毛球", "badminton": "羽毛球", "打球": "羽毛球",
+    "乒乓球": "乒乓球", "网球": "网球", "篮球": "篮球", "足球": "足球",
 }
 
 ACTIVITY_EMOJI = {
     "骑行": "🚴", "跑步": "🏃", "游泳": "🏊", "徒步": "🥾",
     "健身": "💪", "跳绳": "🤸", "瑜伽": "🧘",
+    "羽毛球": "🏸", "乒乓球": "🏓", "网球": "🎾", "篮球": "🏀", "足球": "⚽",
 }
 
 
@@ -121,12 +124,15 @@ def log_to_notion(activity: str, distance_km: float, duration: str,
     if note:
         short += f"\n💡 {note}"
 
-    # 时间线
+    # 时间线（无时区偏移的裸时间按本机时区补齐，否则 Notion 会当 UTC 处理）
     timeline_start = start_time
     timeline_end = end_time
+    _tz = datetime.now().astimezone().tzinfo
+    if datetime.fromisoformat(start_time).tzinfo is None:
+        timeline_start = datetime.fromisoformat(start_time).replace(tzinfo=_tz).isoformat()
     if not end_time:
         # 自动计算
-        dt = datetime.fromisoformat(start_time)
+        dt = datetime.fromisoformat(timeline_start)
         dt_end = dt + td
         timeline_end = dt_end.isoformat()
 

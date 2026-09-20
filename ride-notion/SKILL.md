@@ -54,6 +54,8 @@ metadata:
 
 Notion 阅览世界字段映射：
 
+时区坑：`--start-time` 传裸 ISO 时间（无 +08:00）时，Notion 会按 UTC 显示、整体差 8 小时。脚本已修复——无偏移的时间自动按本机时区补齐；调用方仍建议显式带 `+08:00`。
+
 | 字段 | 值 | 示例 |
 |------|---|------|
 | 名字 | 类型 + 距离 + 时间 | `🚴 骑行 - 20.59 km - 1h13m` |
@@ -101,6 +103,12 @@ def intensity(avg_hr, max_hr=190):
 ~/.hermes/hermes-agent/venv/bin/python scripts/ride_log.py report --period weekly
 ~/.hermes/hermes-agent/venv/bin/python scripts/ride_log.py report --period monthly
 ```
+
+## 坑点
+
+- `--activity` 会经过 `resolve_activity()` 二次识别，非骑行运动（羽毛球等）直接传中文活动名即可；emoji/别名映射已覆盖羽毛球、乒乓、网球、篮球、足球。
+- 不传 `--distance` 时标题退化为 `emoji - 时长`。若历史页面标题被误写成「🚴 骑行」，用 Notion PATCH page API 改 title 属性（key 从 `scripts/config.py` 的 `Config.NOTION_API_KEY` 取）。
+- 心率曲线截图里的极值（如 144/93）可写进 `--note`。
 
 ## 依赖
 
