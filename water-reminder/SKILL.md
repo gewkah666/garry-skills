@@ -1,6 +1,6 @@
 ---
 name: water-reminder
-description: 智能喝水提醒，跑在 Hermes 上。每 2 小时（9–21 点）由 cron 触发：先过 Phantom 的打扰预算（睡觉 / 开会 / 不在家自动跳过），今天够 8 杯就不提，否则用 phantom_escalate 坚持提醒到御主确认（飞书 → Bark 升级）。御主在飞书回「喝了 / ok」即确认并记一杯；说「喝一杯 / 加一杯」随时记；22:00 汇总当天。状态只在 Phantom 的事件库里，没有第二份真相。
+description: 智能喝水提醒，跑在 Hermes 上。每 2 小时（9–21 点）由 cron 触发：先过 Phantom 的打扰预算（睡觉 / 开会 / 不在家自动跳过），今天够 8 杯就不提，否则用 phantom_escalate 坚持提醒到御主确认（飞书 → App 推送升级）。御主在飞书回「喝了 / ok」即确认并记一杯；说「喝一杯 / 加一杯」随时记；22:00 汇总当天。状态只在 Phantom 的事件库里，没有第二份真相。
 version: 2.0.0
 author: Phantom
 license: MIT
@@ -33,7 +33,7 @@ metadata:
 2. `phantom_escalate action=list`（或看简报里的活跃提醒）：已经有一条「喝水」在坚持提醒中 → `[SILENT]`，别叠加。
 3. 否则 `phantom_escalate action=start`：
    - `what`：`喝一杯水（今天第 N 杯）`；`message`：短、直接，不解释系统，如「该喝水了，今天第 3 杯。喝了回我一个字。」
-   - `level`：`L1`（飞书）；`ladder`：`[{after:"15m", level:"L2"}, {after:"30m", level:"L2"}]`（15 分钟没回升 Bark，再 15 分钟再推一次）
+   - `level`：`L1`（飞书）；`ladder`：`[{after:"15m", level:"L2"}, {after:"30m", level:"L2"}]`（15 分钟没回升 App 推送，再 15 分钟再推一次）
    - `expires`：`60m`；`confirm_keywords`：`["喝了","ok","喝","👌"]`；`kind`：`water`；`home_only`：true
 4. 回 `[SILENT]`。提醒本身由 escalate 送达，你不用再说话。
 
