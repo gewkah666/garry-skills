@@ -8,8 +8,10 @@ description: >
   task); start a task (stamp start time, Status→In Progress);
   log progress into the task's Notion page; finish a task (stamp end time + duration,
   Status→Done); detect when work drifts off the task and offer to create a new one;
-  track several tasks running at once; and remove a task's dedicated Git worktree after
-  its Review is explicitly approved. Triggered by /dev-tasks or any add / list / start /
+  track several tasks running at once; verify locally, then promote the work through pull
+  requests task branch → dev → staging → main (never a local merge), verifying in the dev
+  environment before staging and watching each post-merge CI; and remove a task's dedicated Git worktree
+  after its Review is explicitly approved. Triggered by /dev-tasks or any add / list / start /
   finish / log / review / "plan my day" / "what am I working on" request. Optional
   announcements via `phantom_notify` (see the "Announcements" section).
 ---
@@ -18,7 +20,8 @@ description: >
 
 Manage the user's development tasks in the Notion **Tasks** database through Hermes' Notion
 MCP server (`notion`: search / fetch / query-data-source / create-pages / update-page /
-move-page). This skill runs on **Hermes (Phantom)**; Claude Code no longer owns it.
+move-page). This skill runs on **Hermes (Phantom)** and in **Claude Code** sessions, including
+AionUi team members — see **Notion access** for which path to use.
 
 This skill is a **workflow**, not just CRUD. The four scenarios it serves:
 1. **Morning planning** — turn the user's spoken plan into real Notion tasks for today.
@@ -29,6 +32,46 @@ This skill is a **workflow**, not just CRUD. The four scenarios it serves:
 4. **Concurrency** — several tasks may be In Progress at the same time; always know which
    task any action or log belongs to.
 
+## Notion access — pick the path that exists in this session
+
+The operations below are written in the hosted Notion MCP vocabulary (`notion-create-pages`,
+`notion-update-page`, SQLite-style property values such as `date:Completed On:start`). Map
+them onto whichever path this session actually has; check before the first write.
+
+1. **Hosted Notion MCP** (`notion-*` tools) → use the text below as written.
+2. **Local `@notionhq/notion-mcp-server`** (tools named `API-post-search`, `API-post-page`,
+   `API-patch-page`, `API-query-data-source`, `API-patch-block-children`,
+   `API-retrieve-a-page`, …) → raw Notion API shapes, not SQLite values. It is registered in
+   AionUi as the `Notion` MCP server and is the default MCP of the Claude Code assistant, so
+   new AionUi conversations and newly spawned team members get it.
+3. **No Notion tools at all** — e.g. an AionUi team member started before that default was
+   set (AionUi launches agents with `--strict-mcp-config`, so user-scope `claude mcp`
+   servers never load there) → call the REST API directly with `curl`:
+   base `https://api.notion.com/v1`, headers `Authorization: Bearer $TOKEN`,
+   `Notion-Version: 2025-09-03`, `Content-Type: application/json`. Read the token inside
+   the command, `TOKEN=$(python3 -c "import json;print(json.load(open('$HOME/.hermes/notion-relay.json'))['notion_token'])")`,
+   and **never print, log, or paste it**.
+
+Raw-API equivalents for paths 2 and 3 (same fields, same rules as the rest of this skill):
+
+| Skill operation | REST call |
+|---|---|
+| create task | `POST /pages`, parent `{"type":"data_source_id","data_source_id":"3f2616ff-95e7-837b-8444-074b10e56064"}`, content via `children` blocks |
+| update properties | `PATCH /pages/{page_id}` |
+| append Work-log line | `PATCH /blocks/{page_id}/children` with a `bulleted_list_item` |
+| read a task | `GET /pages/{page_id}`, body via `GET /blocks/{page_id}/children` |
+| find / list tasks | `POST /data_sources/3f2616ff-95e7-837b-8444-074b10e56064/query` with `filter` / `sorts` |
+
+Property shapes: `Task name` → `{"title":[{"text":{"content":"…"}}]}`; `Status` →
+`{"status":{"name":"In Progress"}}`; `Priority` → `{"select":{"name":"High"}}`; `Tags` →
+`{"multi_select":[{"name":"开发"}]}`; `Project` → `{"relation":[{"id":"<page-id>"}]}`;
+`Completed On` → `{"date":{"start":"2026-07-16"}}` (date), `{"date":{"start":"2026-07-16T09:12:00+10:00"}}`
+(datetime point), `{"date":{"start":"…","end":"…"}}` (range). Write datetimes with the local
+UTC offset from `date '+%z'` so they land at the right time of day.
+
+Unlike the hosted server, the REST query endpoint works on this plan, so paths 2 and 3 can
+list the board directly; the `entitlement_required` limitation below applies only to path 1.
+
 ## Fixed IDs (use directly; don't re-discover)
 
 | Thing | Value |
@@ -38,7 +81,7 @@ This skill is a **workflow**, not just CRUD. The four scenarios it serves:
 | Tasks **database** URL | `https://app.notion.com/p/33b616ff95e780f7891ee221b0c8605d` |
 | **Board** view (grouped by Status, filtered to Peppy) | `…?v=33b616ff95e780ff942c000c9ce8fe81` |
 | **Projects** data source (resolve the `Project` relation here) | `collection://8aa616ff-95e7-8268-b269-0789ff95e092` |
-| **Peppy** project page (mmWave radar: `mmwave-*`, `D:\Projects\peppy`) | `https://app.notion.com/p/33b616ff95e780fbbe8dcfa7273e3c86` |
+| **Peppy** project page (mmWave radar: `mmwave-*`, `~/Projects/peppy`) | `https://app.notion.com/p/33b616ff95e780fbbe8dcfa7273e3c86` |
 | **Phantom** project page (Hermes / phantom-app / phantom-core / `~/Projects/phantom`) | `https://app.notion.com/p/Phantom-3b8616ff95e780b09023c078fa90bd57` |
 | **Arc** project page (posture / fitness: `arc*`, MotionCoach) | `https://app.notion.com/p/Arc-341616ff95e781e29df7f2ad58f6498b` |
 
@@ -95,8 +138,8 @@ By task state:
 
 Also mirror the times in the page `## Work log` (`- **Start** …`, `- **End** … — summary`,
 `- **Duration** …` = real elapsed, minutes-honest) and the day index. The **only** allowed
-divergence from reality is the 30-min calendar display floor above. Read the clock with PowerShell
-`Get-Date -Format 'yyyy-MM-dd HH:mm'` or Bash `date '+%Y-%m-%d %H:%M'` (local timezone).
+divergence from reality is the 30-min calendar display floor above. Read the clock with Bash
+`date '+%Y-%m-%d %H:%M'` (local timezone).
 Concurrent tasks' blocks may overlap — that's fine.
 
 ## Local day index (the "what's active now" tracker)
@@ -106,7 +149,7 @@ asked "which tasks are In Progress?". Maintain a small local file as the durable
 today's plan and active set. **The Notion page is the system of record for the full log;
 this file is only a fast index.**
 
-Path: `C:\Users\echoG\.claude\dev-tasks\<YYYY-MM-DD>.md` (create the folder if missing).
+Path: `~/.claude/dev-tasks/<YYYY-MM-DD>.md` (create the folder if missing).
 Format — one row per task, updated as tasks start/finish:
 
 ```
@@ -140,8 +183,9 @@ logical creation operation: do not report the task as created, announce a succes
 or proceed to work until both exist.
 
 1. Before writing to Notion, resolve the exact repository and intended base branch for each
-   task. Prefer the repository already in scope and its configured integration branch; if
-   several repositories are plausible or none is known, ask before creating the task.
+   task. The base is the repository's `dev` branch (see **Mandatory promotion pipeline**);
+   prefer the repository already in scope, and if several repositories are plausible, none
+   is known, or the repository has no `dev` branch, ask before creating the task.
 2. Create the Notion page first so its page ID can make the branch unique. Follow the
    repository's branch convention; when none exists, use
    `task/<ascii-task-slug>-<short-unique-page-id-suffix>` (at least 6 characters; extend it
@@ -157,6 +201,85 @@ If branch creation or verification fails after the Notion page exists, set that 
 `Blocked`, append the exact failure to its Work log, update the day index, and announce the
 blocker. Do not silently use the base branch, create changes in the primary worktree, or call
 the task successfully created. Retry the same intended branch after resolving the problem.
+
+## Mandatory promotion pipeline: local → `dev` → `staging` → `main`
+
+Code this skill produced moves through **four gates, in order, each one through a pull
+request**. No local `git merge`, no direct commit or `git push` to `dev` / `staging` /
+`main`, no "it is only a docs change" shortcut, no skipping a stage. A task branch that was
+never pushed and never opened as a PR is not merged work, however green it is locally. This
+is the other half of **Mandatory Git branch at Notion task creation**: the branch is created
+from `dev` with the task, and it leaves through PRs.
+
+| Stage | Gate to pass | Then | Task status |
+|---|---|---|---|
+| 1. Local verification | tests / build / run the change locally, all green | PR task branch → `dev` | `Testing` |
+| 2. `dev` environment verification | merged to `dev`, `dev` deploy green, change verified in the dev environment | user confirms → PR `dev` → `staging` | `Testing` → `Review` |
+| 3. `staging` | merged to `staging`, `staging` deploy / checks green | PR `staging` → `main` | `Review` |
+| 4. `main` | merged to `main`, post-merge CI / deploy green | worktree cleanup, `Done` | `Done` |
+
+**Stage 1 — local verification (before any PR).** When development is finished, set the
+task to `Testing` and verify in the task's own worktree: the repository's test suite, its
+build / lint / type check, and running the changed behaviour for real (a script on real
+data, the app or page actually exercised — not only unit tests). Append
+`- **Local verify** <what was run> — <result / numbers>` to the Work log. If anything
+fails, fix it on the task branch and verify again; the task stays in `Testing`. Only a
+clean local verification authorizes Stage 2's PR — it does not need a separate go-ahead.
+
+**Stage 1 → `dev`: PR the task branch.**
+1. `git status --short` must be clean and every commit pushed:
+   `git -C <repo-root> push -u origin <branch>`.
+2. `gh pr create --base dev --head <branch> --title "<conventional-commit-style title>" --body "<body>"`.
+   The body says what changed and why, the local verification evidence, and what to check
+   in the dev environment. Write it in the language that repository's history uses.
+3. **Wait for the checks, and name them when reporting.** Merge only on green. A failing
+   check is fixed on the same branch and pushed again — never merge red, never merge with
+   `--admin` or by disabling a required check, never re-run a check hoping it flakes green
+   without saying so.
+4. Merge with the repository's convention for feature PRs
+   (`gh pr merge <n> --squash|--merge|--rebase`); ask which when there is no obvious one.
+5. Watch what runs after the merge on `dev` (deploy to the dev environment, artifact
+   upload) to a terminal state. Log `- **PR→dev** <url>; merged <sha>; dev deploy <workflow>: <result>`.
+
+**Stage 2 — verify in the dev environment.** Exercise the change where `dev` is deployed
+(the dev URL / device / service, with that environment's data), log
+`- **Dev verify** <what was checked> — <result>`, move the task to `Review`, and tell the
+user what was verified and what is left for them to look at. A failure here goes back to
+the task branch → Stage 1 again (new PR to `dev`); never patch `dev` directly.
+
+**Stage 2 → `staging` needs the user's explicit confirmation** that dev verification passed
+(“dev 验证通过” / “Review 通过” / “验收通过” / “LGTM”). Then:
+1. **Check what the promotion carries:** `git log --oneline origin/staging..origin/dev`.
+   `dev` is shared — if it contains commits from other tasks that have not passed their own
+   dev verification, stop and list them for the user instead of promoting them silently.
+2. `gh pr create --base staging --head dev --title "<release-style title>" --body "<the tasks / PRs included and their verification>"`.
+3. Green checks, then merge with a **merge commit** (`gh pr merge <n> --merge`) — never squash
+   or rebase a promotion PR, or `dev` / `staging` / `main` diverge and every later promotion
+   conflicts. Watch the `staging` post-merge workflow to a terminal state. Log
+   `- **PR→staging** <url>; merged <sha>; staging <workflow>: <result>`.
+
+**Stage 3 → `main`.** Once `staging` is deployed and green (and any staging smoke check the
+repository defines has passed), open `gh pr create --base main --head staging …`, check what
+`git log --oneline origin/main..origin/staging` carries the same way, wait for green checks,
+and merge with `--merge`. The Stage 2 confirmation covers this step unless the user asked to
+hold at `staging`; if `staging` turns red, stop and report — do not promote.
+
+**Stage 4 — post-merge on `main` is part of the job.** Watch the `main` workflows (publish,
+production deploy) to a terminal state and report them by name. The task is finished when
+what runs *after* the `main` merge has gone green, not at the word "merged". Log
+`- **PR→main** <url>; merged <sha>; post-merge <workflow>: <result>`, then do the worktree
+cleanup and `Done` in **Review approved → …**.
+
+**Exempt:** the skills repository `~/Projects/garry-skills` (only `main`) is not bound by this
+pipeline — changes there are committed straight to `main` (user decision 2026-10-10).
+
+Do it **per repository**: a task that touched three repositories runs three pipelines. If a
+repository has no `dev` or `staging` branch on its remote, stop and ask whether to create
+them or to use a shorter path for that repository — do not create long-lived branches or
+fall back to `main` on your own. If any PR cannot be opened or merged (no remote, no
+permission, a required review the user must do themselves), keep the task where it is
+(`Testing` / `Review`), append the exact blocker to the Work log, and tell the user — never
+fall back to merging locally.
 
 ## Scenario 1 — Morning planning ("plan my day" / a list of todos)
 
@@ -229,18 +352,23 @@ update Notion + the day index as usual, then announce it too (optional, if enabl
 `phantom_notify level=L1 kind=dev message="任务 <task title> 状态变为 <中文状态>"`
 (e.g. 已阻塞 / 测试中 / 待评审).
 
-**Review approved → remove the task worktree:** explicit user approval of a task in
-`Review` (for example, “Review 通过” / “验收通过” / “LGTM”) is the authorization to
-remove that task's dedicated Git worktree; do not ask for a second confirmation. Perform
-cleanup before marking the task `Done`:
+**Review approved → promote through `staging` to `main`, then remove the task worktree:**
+explicit user confirmation of a task in `Review` (for example, “dev 验证通过” / “Review 通过” /
+“验收通过” / “LGTM”) is the authorization to run Stages 2 → 4 of **Mandatory promotion
+pipeline** (PR `dev` → `staging`, then PR `staging` → `main`) and to remove the task's
+dedicated Git worktree; do not ask for a second confirmation. The task branch already
+reached `dev` through its own PR in Stage 1. Promote first, then clean up, then mark the
+task `Done`:
 
 1. Resolve the worktree from the task's Work log/current task context and verify it with
    `git worktree list --porcelain`. The target must be the reviewed task's dedicated
    worktree, normally `<repo-root>/.tree/<task-slug>`; never remove the repository's primary
    worktree or a path whose task/branch association is ambiguous. If the current working
    directory is inside the target, first leave it and run cleanup from the repository root.
-2. Check `git status --short` in that worktree. Also verify the reviewed commits are merged
-   into the intended integration branch or are preserved on the expected remote branch.
+2. Check `git status --short` in that worktree. Also verify the reviewed commits reached
+   `main` **through the merged promotion PRs** (`gh pr view <n> --json state,mergeCommit`
+   for the task→`dev`, `dev`→`staging` and `staging`→`main` PRs, and
+   `git merge-base --is-ancestor <task-commit> origin/main`).
    If there are modified/untracked files, local-only commits, or uncertain integration,
    **do not remove or force-remove** the worktree. Keep the task in `Review`, append a
    blocker to the Work log, announce the problem, and tell the user exactly what remains.
@@ -350,6 +478,8 @@ mutating. (Local day index is usually faster — check it first.)
 - Just-do-it for add and single-task updates; **confirm first** for bulk/destructive changes
   (archiving, completing several at once). Always report the task's clickable Notion URL.
 - Keep the Notion page and the local day index consistent; Notion wins if they disagree.
+- Code moves local → `dev` → `staging` → `main`, each step through a **pull request**, never a
+  local merge or a direct push — see **Mandatory promotion pipeline**.
 
 ## Which project — resolve it, never default
 
@@ -358,7 +488,7 @@ to, decided from evidence, in this order:
 
 1. **The user names it** ("给 Phantom 加个任务", "Peppy 的雷达…") → that project.
 2. **The repo / working directory** the work happens in: `phantom`, `phantom-app`, `phantom-core`,
-   `~/.hermes`, `~/Projects/phantom` → **Phantom**; `mmwave-*`, `D:\Projects\peppy`,
+   `~/.hermes`, `~/Projects/phantom` → **Phantom**; `mmwave-*`, `~/Projects/peppy`,
    radar / IWRL6844 / dashboard-for-radar work → **Peppy**; `arc*`, posture / MotionCoach → **Arc**.
 3. **The task wording** (iOS app / Hermes / 御主 tooling → Phantom; 雷达 / 点云 / 固件 → Peppy;
    健身动作 / 姿态 → Arc).
@@ -389,7 +519,7 @@ completion, key finding/discovery, and drift detection.
 
 When the user says a task is **strong / mandatory / 强提醒 / 必须要做**, hand it to
 `phantom_escalate` — the reminder that insists until confirmed and climbs the interruption
-ladder (Feishu → Bark → speaker) under the budget:
+ladder (Feishu → app push → Bark critical + speaker) under the budget:
 
 ```
 phantom_escalate action=start
