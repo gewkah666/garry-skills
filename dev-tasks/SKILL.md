@@ -184,11 +184,11 @@ logical creation operation: do not report the task as created, announce a succes
 or proceed to work until both exist.
 
 1. Before writing to Notion, resolve the exact repository and intended base branch for each
-   task. The base is the repository's `staging` branch, **never `dev`** (see **Mandatory
-   promotion pipeline**: the task branch later goes into `staging`, and a branch cut from
-   `dev` would carry other tasks' unverified work there); prefer the repository already in
-   scope, and if several repositories are plausible, none is known, or the repository has no
-   `staging` branch, ask before creating the task.
+   task. The base is the repository's `main` branch, **never `dev` or `staging`** (see
+   **Mandatory promotion pipeline**: the task branch later goes into `dev` and `staging`
+   separately, and a branch cut from either would carry other tasks' unverified work
+   along); prefer the repository already in scope, and if several repositories are
+   plausible or none is known, ask before creating the task.
 2. Create the Notion page first so its page ID can make the branch unique. Follow the
    repository's branch convention; when none exists, use
    `task/<ascii-task-slug>-<short-unique-page-id-suffix>` (at least 6 characters; extend it
@@ -212,12 +212,12 @@ request**. No local `git merge`, no direct commit or `git push` to `dev` / `stag
 `main`, no "it is only a docs change" shortcut, no skipping a stage. A task branch that was
 never pushed and never opened as a PR is not merged work, however green it is locally. This
 is the other half of **Mandatory Git branch at Notion task creation**: the branch is created
-from `staging` with the task, and it leaves through PRs.
+from `main` with the task, and it leaves through PRs.
 
 **`dev` is a dead end, not a stage on the way to `staging`.** The task branch is PR'd into
 `dev` to be tried in the dev environment, and the **same task branch** is PR'd into `staging`
 separately. **Never open or merge a `dev` → `staging` PR, never merge `dev` into the task
-branch, and never cut a task branch from `dev`**: `dev` carries other branches' unverified
+branch, and never cut a task branch from `dev` or `staging`**: `dev` carries other branches' unverified
 work and would contaminate `staging` (user rule, 2026-10-19). Nothing built from `dev` is
 promotable.
 
@@ -268,9 +268,11 @@ the task branch → Stage 1 again (new PR to `dev`); never patch `dev` directly.
    this task's commits. Anything else (commits from `dev`, another task) → stop and tell the
    user; never PR it into `staging`.
 2. `gh pr create --base staging --head <branch> --title "<conventional-commit-style title>" --body "<what changed, local + dev verification evidence, the PR→dev link>"`.
-   If it conflicts with `staging`, update the task branch from `origin/staging` (merge or
-   rebase per the repository's convention) and re-verify locally — `staging` is the task
-   branch's own base, so this is safe; `dev` never is.
+   If it conflicts with `staging`, first update the task branch from `origin/main` (its own
+   base, so this is safe) and re-verify locally. If it still conflicts — against another
+   task's change already in `staging` — resolve it the same way as for `dev`: a throwaway
+   `<branch>-staging` from the task branch with `origin/staging` merged in, PR'd instead.
+   Never merge `staging` or `dev` into the task branch itself.
 3. Green checks, then merge with the repository's feature-PR convention. Watch the `staging`
    post-merge workflow to a terminal state. Log
    `- **PR→staging** <url>; merged <sha>; staging <workflow>: <result>`.
