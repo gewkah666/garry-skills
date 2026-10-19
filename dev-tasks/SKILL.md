@@ -296,8 +296,7 @@ pipeline — changes there are committed straight to `main` (user decision 2026-
 Do it **per repository**: a task that touched three repositories runs three pipelines. If a
 repository has no `dev` or `staging` branch on its remote, stop and ask whether to create
 them or to use a shorter path for that repository — do not create long-lived branches or
-fall back to `main` on your own. A repository without `dev` simply skips Stages 1 → `dev`
-and 2 (still verify locally); without `staging` it must ask. If any PR cannot be opened or merged (no remote, no
+fall back to `main` on your own. If any PR cannot be opened or merged (no remote, no
 permission, a required review the user must do themselves), keep the task where it is
 (`Testing` / `Review`), append the exact blocker to the Work log, and tell the user — never
 fall back to merging locally.
