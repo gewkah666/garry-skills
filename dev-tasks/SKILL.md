@@ -9,8 +9,9 @@ description: >
   log progress into the task's Notion page; finish a task (stamp end time + duration,
   Status→Done); detect when work drifts off the task and offer to create a new one;
   track several tasks running at once; verify locally, then promote the work through pull
-  requests task branch → dev → staging → main (never a local merge), verifying in the dev
-  environment before staging and watching each post-merge CI; and remove a task's dedicated Git worktree
+  requests — task branch → dev for dev-environment testing, the same task branch → staging,
+  then staging → main; dev is never merged into staging (never a local merge), verifying in
+  the dev environment before staging and watching each post-merge CI; and remove a task's dedicated Git worktree
   after its Review is explicitly approved. Triggered by /dev-tasks or any add / list / start /
   finish / log / review / "plan my day" / "what am I working on" request. Optional
   announcements via `phantom_notify` (see the "Announcements" section).
@@ -183,9 +184,11 @@ logical creation operation: do not report the task as created, announce a succes
 or proceed to work until both exist.
 
 1. Before writing to Notion, resolve the exact repository and intended base branch for each
-   task. The base is the repository's `dev` branch (see **Mandatory promotion pipeline**);
-   prefer the repository already in scope, and if several repositories are plausible, none
-   is known, or the repository has no `dev` branch, ask before creating the task.
+   task. The base is the repository's `staging` branch, **never `dev`** (see **Mandatory
+   promotion pipeline**: the task branch later goes into `staging`, and a branch cut from
+   `dev` would carry other tasks' unverified work there); prefer the repository already in
+   scope, and if several repositories are plausible, none is known, or the repository has no
+   `staging` branch, ask before creating the task.
 2. Create the Notion page first so its page ID can make the branch unique. Follow the
    repository's branch convention; when none exists, use
    `task/<ascii-task-slug>-<short-unique-page-id-suffix>` (at least 6 characters; extend it
@@ -202,19 +205,26 @@ If branch creation or verification fails after the Notion page exists, set that 
 blocker. Do not silently use the base branch, create changes in the primary worktree, or call
 the task successfully created. Retry the same intended branch after resolving the problem.
 
-## Mandatory promotion pipeline: local → `dev` → `staging` → `main`
+## Mandatory promotion pipeline: local → `dev` (test only) → `staging` → `main`
 
 Code this skill produced moves through **four gates, in order, each one through a pull
 request**. No local `git merge`, no direct commit or `git push` to `dev` / `staging` /
 `main`, no "it is only a docs change" shortcut, no skipping a stage. A task branch that was
 never pushed and never opened as a PR is not merged work, however green it is locally. This
 is the other half of **Mandatory Git branch at Notion task creation**: the branch is created
-from `dev` with the task, and it leaves through PRs.
+from `staging` with the task, and it leaves through PRs.
+
+**`dev` is a dead end, not a stage on the way to `staging`.** The task branch is PR'd into
+`dev` to be tried in the dev environment, and the **same task branch** is PR'd into `staging`
+separately. **Never open or merge a `dev` → `staging` PR, never merge `dev` into the task
+branch, and never cut a task branch from `dev`**: `dev` carries other branches' unverified
+work and would contaminate `staging` (user rule, 2026-10-19). Nothing built from `dev` is
+promotable.
 
 | Stage | Gate to pass | Then | Task status |
 |---|---|---|---|
 | 1. Local verification | tests / build / run the change locally, all green | PR task branch → `dev` | `Testing` |
-| 2. `dev` environment verification | merged to `dev`, `dev` deploy green, change verified in the dev environment | user confirms → PR `dev` → `staging` | `Testing` → `Review` |
+| 2. `dev` environment verification | merged to `dev`, `dev` deploy green, change verified in the dev environment | user confirms → PR **task branch** → `staging` | `Testing` → `Review` |
 | 3. `staging` | merged to `staging`, `staging` deploy / checks green | PR `staging` → `main` | `Review` |
 | 4. `main` | merged to `main`, post-merge CI / deploy green | worktree cleanup, `Done` | `Done` |
 
@@ -241,6 +251,11 @@ clean local verification authorizes Stage 2's PR — it does not need a separate
 5. Watch what runs after the merge on `dev` (deploy to the dev environment, artifact
    upload) to a terminal state. Log `- **PR→dev** <url>; merged <sha>; dev deploy <workflow>: <result>`.
 
+**If the PR into `dev` conflicts**, do not resolve it on the task branch (that would pull
+`dev` into it). Cut a throwaway `<branch>-dev` from the task branch, merge `origin/dev` into
+that, resolve there, and PR `<branch>-dev` → `dev` instead. The task branch stays clean for
+`staging`.
+
 **Stage 2 — verify in the dev environment.** Exercise the change where `dev` is deployed
 (the dev URL / device / service, with that environment's data), log
 `- **Dev verify** <what was checked> — <result>`, move the task to `Review`, and tell the
@@ -249,19 +264,22 @@ the task branch → Stage 1 again (new PR to `dev`); never patch `dev` directly.
 
 **Stage 2 → `staging` needs the user's explicit confirmation** that dev verification passed
 (“dev 验证通过” / “Review 通过” / “验收通过” / “LGTM”). Then:
-1. **Check what the promotion carries:** `git log --oneline origin/staging..origin/dev`.
-   `dev` is shared — if it contains commits from other tasks that have not passed their own
-   dev verification, stop and list them for the user instead of promoting them silently.
-2. `gh pr create --base staging --head dev --title "<release-style title>" --body "<the tasks / PRs included and their verification>"`.
-3. Green checks, then merge with a **merge commit** (`gh pr merge <n> --merge`) — never squash
-   or rebase a promotion PR, or `dev` / `staging` / `main` diverge and every later promotion
-   conflicts. Watch the `staging` post-merge workflow to a terminal state. Log
+1. **Check what the PR carries:** `git log --oneline origin/staging..<branch>` must list only
+   this task's commits. Anything else (commits from `dev`, another task) → stop and tell the
+   user; never PR it into `staging`.
+2. `gh pr create --base staging --head <branch> --title "<conventional-commit-style title>" --body "<what changed, local + dev verification evidence, the PR→dev link>"`.
+   If it conflicts with `staging`, update the task branch from `origin/staging` (merge or
+   rebase per the repository's convention) and re-verify locally — `staging` is the task
+   branch's own base, so this is safe; `dev` never is.
+3. Green checks, then merge with the repository's feature-PR convention. Watch the `staging`
+   post-merge workflow to a terminal state. Log
    `- **PR→staging** <url>; merged <sha>; staging <workflow>: <result>`.
 
 **Stage 3 → `main`.** Once `staging` is deployed and green (and any staging smoke check the
 repository defines has passed), open `gh pr create --base main --head staging …`, check what
 `git log --oneline origin/main..origin/staging` carries the same way, wait for green checks,
-and merge with `--merge`. The Stage 2 confirmation covers this step unless the user asked to
+and merge with a **merge commit** (`--merge`) — never squash or rebase the promotion PR, or
+`staging` and `main` diverge and every later promotion conflicts. The Stage 2 confirmation covers this step unless the user asked to
 hold at `staging`; if `staging` turns red, stop and report — do not promote.
 
 **Stage 4 — post-merge on `main` is part of the job.** Watch the `main` workflows (publish,
@@ -276,7 +294,8 @@ pipeline — changes there are committed straight to `main` (user decision 2026-
 Do it **per repository**: a task that touched three repositories runs three pipelines. If a
 repository has no `dev` or `staging` branch on its remote, stop and ask whether to create
 them or to use a shorter path for that repository — do not create long-lived branches or
-fall back to `main` on your own. If any PR cannot be opened or merged (no remote, no
+fall back to `main` on your own. A repository without `dev` simply skips Stages 1 → `dev`
+and 2 (still verify locally); without `staging` it must ask. If any PR cannot be opened or merged (no remote, no
 permission, a required review the user must do themselves), keep the task where it is
 (`Testing` / `Review`), append the exact blocker to the Work log, and tell the user — never
 fall back to merging locally.
@@ -355,9 +374,9 @@ update Notion + the day index as usual, then announce it too (optional, if enabl
 **Review approved → promote through `staging` to `main`, then remove the task worktree:**
 explicit user confirmation of a task in `Review` (for example, “dev 验证通过” / “Review 通过” /
 “验收通过” / “LGTM”) is the authorization to run Stages 2 → 4 of **Mandatory promotion
-pipeline** (PR `dev` → `staging`, then PR `staging` → `main`) and to remove the task's
-dedicated Git worktree; do not ask for a second confirmation. The task branch already
-reached `dev` through its own PR in Stage 1. Promote first, then clean up, then mark the
+pipeline** (PR task branch → `staging`, then PR `staging` → `main`; never `dev` → `staging`)
+and to remove the task's dedicated Git worktree; do not ask for a second confirmation. The
+task branch already reached `dev` through its own PR in Stage 1. Promote first, then clean up, then mark the
 task `Done`:
 
 1. Resolve the worktree from the task's Work log/current task context and verify it with
@@ -367,8 +386,8 @@ task `Done`:
    directory is inside the target, first leave it and run cleanup from the repository root.
 2. Check `git status --short` in that worktree. Also verify the reviewed commits reached
    `main` **through the merged promotion PRs** (`gh pr view <n> --json state,mergeCommit`
-   for the task→`dev`, `dev`→`staging` and `staging`→`main` PRs, and
-   `git merge-base --is-ancestor <task-commit> origin/main`).
+   for the task→`dev`, task→`staging` and `staging`→`main` PRs, and
+   `git merge-base --is-ancestor <task→staging merge commit> origin/main`).
    If there are modified/untracked files, local-only commits, or uncertain integration,
    **do not remove or force-remove** the worktree. Keep the task in `Review`, append a
    blocker to the Work log, announce the problem, and tell the user exactly what remains.
@@ -478,7 +497,8 @@ mutating. (Local day index is usually faster — check it first.)
 - Just-do-it for add and single-task updates; **confirm first** for bulk/destructive changes
   (archiving, completing several at once). Always report the task's clickable Notion URL.
 - Keep the Notion page and the local day index consistent; Notion wins if they disagree.
-- Code moves local → `dev` → `staging` → `main`, each step through a **pull request**, never a
+- Code moves local → `dev` (test only) and, separately, task branch → `staging` → `main`, each
+  step through a **pull request** (never `dev` → `staging`), never a
   local merge or a direct push — see **Mandatory promotion pipeline**.
 
 ## Which project — resolve it, never default
