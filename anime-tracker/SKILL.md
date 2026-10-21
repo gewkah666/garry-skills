@@ -79,12 +79,12 @@ python ~/.hermes/skills/anime-tracker/scripts/anime-tracker.py --watchlist ~/my-
 
 ## 下载完成推送（anime_download_notify，2026-09-14 上线）
 
-`scripts/anime_download_notify.py` + cron job `anime-download-notify`（*/30 分，no_agent）：扫 qb torrents/info，watchlist 目录（无职转生/转生史莱姆/芙莉莲）里首次 100% 的任务 → Bark 推「📥 新番下载完成」。去重状态 `~/.cache/anime-tracker/download_notify_state.json`。
+`scripts/anime_download_notify.py` + cron job `anime-download-notify`（*/30 分，no_agent）：扫 qb torrents/info，watchlist 目录（无职转生/转生史莱姆/芙莉莲）里首次 100% 的任务 → `~/.hermes/scripts/phantom_notify.py --level L2 --kind anime` 推「📥 新番下载完成」（App 推送，过打扰预算，记投递账本）。去重状态 `~/.cache/anime-tracker/download_notify_state.json`；加 `--hold`：预算 defer（睡觉/开会）或投递失败时由 phantom_notify 暂存到 `~/.hermes/phantom/notify_pending.json`，cron `phantom-notify-flush`（*/10）到点补发，超过 24 小时丢弃。
 
 > 曾同时上线「极影视观看记录 → Notion 建档 + 推送」（anime_watch_sync），御主 2026-09-14 当日撤销：不监控看了什么。逆向到的端点（`/zvideo/video/v2/playlist` 等）仍存于 zspace-nas skill 的 references/zvideo-api.md，御主日后再开口才可复用。教训一并记：极影视 API 不返回观看时间戳，任何自动记账禁止编造时刻——数据能承载多少信息就写多少。
 
-### Bark 直推格式（脚本内 bark_push，已实测）
-`POST {BARK_SERVER_URL}/push`，**JSON body**（form 编码会 400），字段单数 `device_key`（非 device_keys）；server 在 ~/.hermes/.env，level=active 带声。
+### 推送一律走 phantom_notify（2026-10-08 起）
+不再直推 Bark：直推绕过打扰预算（03:00 照样响）也不进 reach 的投递账本。脚本里要推东西就 subprocess 调 `~/.hermes/scripts/phantom_notify.py`，带 `--hold` 让它负责重试（一天只跑一次、又落在睡眠窗口里的脚本必须带，否则永远被 defer）；不带时按退出码自己处理：0 送达 / 3 defer / 4 deny / 1 失败。
 
 ## 与其他 skill 的关系
 

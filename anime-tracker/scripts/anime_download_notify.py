@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""anime_download_notify.py — NAS qb 新番下载完成 → Bark 推送。
+"""anime_download_notify.py — NAS qb 新番下载完成 → phantom_notify L2（App 推送）。
 
 （观看记录监控曾在此脚本系列中上线，御主 2026-09-14 撤销：不追踪看了什么。）
 
-状态: ~/.cache/anime-tracker/download_notify_state.json 记已推送 hash, 只推增量。
+状态: ~/.cache/anime-tracker/download_notify_state.json 记已见过的 hash, 只推增量。
+推送走 ~/.hermes/scripts/phantom_notify.py --hold（打扰预算 → reach → 投递账本），不再直推 Bark。
+预算 defer（睡觉/开会）或投递失败时由 phantom_notify 暂存，cron phantom-notify-flush 到点补发。
 用法: python3 anime_download_notify.py [--dry-run]
 """
-import os, sys, json, argparse, urllib.request, datetime, subprocess
+import os, sys, json, argparse, datetime, subprocess
 
 STATE_FILE = os.path.expanduser("~/.cache/anime-tracker/download_notify_state.json")
 ENV_FILE = os.path.expanduser("~/.hermes/.env")
@@ -32,17 +34,14 @@ def save_state(st):
     json.dump(st, open(tmp, "w"), ensure_ascii=False, indent=1)
     os.replace(tmp, STATE_FILE)
 
-def bark_push(env, title, body):
-    srv = env["BARK_SERVER_URL"].rstrip("/")
-    payload = {"device_key": env["BARK_DEVICE_KEY"], "title": title, "body": body,
-               "group": env.get("BARK_GROUP", "phantom"), "level": "active", "isArchive": 1,
-               "sound": "minuet", "url": "phantom://chat"}
-    req = urllib.request.Request(srv + "/push", data=json.dumps(payload).encode(),
-                                 headers={"Content-Type": "application/json"})
-    try:
-        urllib.request.urlopen(req, timeout=15); return True
-    except Exception as e:
-        print(f"[bark-fail] {e}", file=sys.stderr); return False
+NOTIFY = os.path.expanduser("~/.hermes/scripts/phantom_notify.py")
+
+def notify(title, body):
+    r = subprocess.run([NOTIFY, "--level", "L2", "--kind", "anime", "--hold",
+                        "--title", title, "--message", body],
+                       capture_output=True, text=True, timeout=90)
+    if r.returncode != 0:
+        print(f"[notify-fail] rc={r.returncode} {r.stdout.strip()[:300]}", file=sys.stderr)
 
 def qb_torrents(env):
     out = subprocess.run(["curl", "-s", "--connect-timeout", "8",
@@ -74,7 +73,7 @@ def main():
                                      "at": datetime.datetime.now(NOW_TZ).isoformat()}
                 fresh.append(t["name"][:90])
     if fresh and not args.dry_run:
-        bark_push(env, "📥 新番下载完成", " ｜ ".join(fresh[:3]) + ("…" if len(fresh) > 3 else ""))
+        notify("📥 新番下载完成", " ｜ ".join(fresh[:3]) + ("…" if len(fresh) > 3 else ""))
     if not args.dry_run:
         save_state(st)
     print(json.dumps({"checked": len(ts), "new": len(fresh), "names": fresh[:5],
