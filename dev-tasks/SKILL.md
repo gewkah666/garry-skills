@@ -293,10 +293,19 @@ cleanup and `Done` in **Review approved → …**.
 **Exempt:** the skills repository `~/Projects/garry-skills` (only `main`) is not bound by this
 pipeline — changes there are committed straight to `main` (user decision 2026-10-10).
 
-Do it **per repository**: a task that touched three repositories runs three pipelines. If a
-repository has no `dev` or `staging` branch on its remote, stop and ask whether to create
-them or to use a shorter path for that repository — do not create long-lived branches or
-fall back to `main` on your own. If any PR cannot be opened or merged (no remote, no
+Do it **per repository**: a task that touched three repositories runs three pipelines.
+
+**A stage exists only where its environment does** (user rule, 2026-10-28). The `dev` and
+`staging` stages are for trying the change in a deployed dev / staging environment; a
+repository with no such environment deployed skips that stage. With neither, the task
+branch goes straight to `main`: Stage 1's local verification, then one PR task branch →
+`main` (green checks, the repository's feature-PR merge convention, post-merge workflows
+watched), then cleanup and `Done`. Don't create `dev` / `staging` branches for an
+environment that doesn't exist. Run the full pipeline once the environments exist, and ask
+if it is unclear whether one does. Known: `Immersif-AU/immersif-3d-poc` (2026-10-28, no
+environment deployed: task branch → `main`).
+
+If any PR cannot be opened or merged (no remote, no
 permission, a required review the user must do themselves), keep the task where it is
 (`Testing` / `Review`), append the exact blocker to the Work log, and tell the user — never
 fall back to merging locally.
