@@ -130,17 +130,19 @@ By task state:
   user specifies**.
 - **Done** (finished): `Completed On` = a **range [start, end]** at the **actual times** —
   `start` = the real start, `end` = the real finish read from the **current system clock**
-  (never invent, never estimate from workload). If real elapsed < 30 min, extend the
-  calendar-facing `end` to `start + 30 min` (display floor so tasks don't blur on the
-  calendar), but the Work-log `Duration` line always records the **real** elapsed minutes.
+  (never invent, never estimate from workload). Short tasks keep their real end too: there is
+  **no display floor** — a 7-minute task is a 7-minute block, so consecutive tasks don't
+  overlap and the calendar and timeline show the order they happened in (user correction
+  2026-11-09; the old 30-min display floor made back-to-back short tasks overlap).
   **Never** move the block to a different time of day — it sits where the work actually
   happened (user correction 2026-08-10; the old "estimate end from workload" and "nudge
   research tasks to ~18:00" rules are retired).
 
 Also mirror the times in the page `## Work log` (`- **Start** …`, `- **End** … — summary`,
-`- **Duration** …` = real elapsed, minutes-honest) and the day index. The **only** allowed
-divergence from reality is the 30-min calendar display floor above. Read the clock with Bash
-`date '+%Y-%m-%d %H:%M'` (local timezone).
+`- **Duration** …` = real elapsed, minutes-honest) and the day index. There is **no** allowed
+divergence from reality. If a time wasn't recorded when it happened, recover it from evidence
+(the session transcript's message timestamps, commit and merge times) rather than leaving a
+bare date or guessing. Read the clock with Bash `date '+%Y-%m-%d %H:%M'` (local timezone).
 Concurrent tasks' blocks may overlap — that's fine.
 
 ## Local day index (the "what's active now" tracker)
@@ -365,7 +367,7 @@ phase worth a checkpoint, a finding that changes what happens next. Routine prog
 stay silent.
 
 **Finish:** end = the **current system clock** (read it; see Time rules — `Duration` is real
-elapsed, the calendar range gets the 30-min display floor; read the `Completed On` start /
+elapsed and the calendar range uses the same real end, with no display floor; read the `Completed On` start /
 Work-log Start back via `notion-fetch` if not in context) → append
 `- **End** <ts> — <1–3 line summary of what was done>` and `- **Duration** <Xh Ym>` to the Work
 log → set `Completed On` as a **range [start, end]** →
