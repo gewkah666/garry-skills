@@ -6,7 +6,8 @@ description: >
   wording, see "Which project"). Use to: plan the day (create
   today's tasks each morning and immediately create a matching Git branch for every
   task); start a task (stamp start time, Status→In Progress);
-  log progress into the task's Notion page; finish a task (stamp end time + duration,
+  log progress into the task's Notion page, including where every document the task reads or
+  changes lives (a `## Docs` section); finish a task (stamp end time + duration,
   Status→Done); detect when work drifts off the task and offer to create a new one;
   track several tasks running at once; verify locally, then promote the work through pull
   requests — task branch → dev for dev-environment testing, the same task branch → staging,
@@ -178,6 +179,54 @@ micro-items, propose merging them into a handful of ~30-min+ tasks before creati
 toward fewer, larger tasks. (This is about task size only — start/end times are still stamped
 to the minute.)
 
+## Document locations — the page lists every document the task involves
+
+Every task page carries a `## Docs` section between `## Goal` and `## Work log` that lists
+**each document the task involves, with where it lives**, so the user or a later session can
+open it directly instead of searching. Two kinds, one bullet per document:
+
+- **Input** — what the work is based on or must follow: requirements and design documents
+  (PRD, EDD, System Overview, decision logs), the repository's `CLAUDE.md` / `AGENTS.md`,
+  handoff / plan / phase contracts, specs, drawings, external references.
+- **Output** — what the task creates or changes: specs, READMEs, guidance files, reports,
+  generated pages, Notion / Claude Docs pages.
+
+```
+- **Input** /Users/garry/Projects/ledpoint/immersif-doc/docs/edd/Immersif-EDD-00-Foundations.md §5.1 — OpenAPI contract rules
+- **Output** /Users/garry/Projects/ledpoint/immersif-platform/docs/api/catalogue.openapi.yaml — new catalogue contract
+- **Output** https://app.notion.com/p/… — design review notes
+```
+
+**Location rules:**
+- A file in a repository → its **absolute path in the repository's primary checkout**, never
+  the `.tree/<slug>` worktree path (the worktree is removed after Review). An Output that so
+  far exists only on the task branch still gets its primary-checkout path; the branch is
+  already in the Work log. Add the section (`§4.2`, heading name) when only part of the
+  document matters.
+- A file outside any repository → its absolute path.
+- An online document (Notion, Claude Docs, Google Docs, GitHub, a web page) → its full URL.
+- Never a bare file name, `~`-relative shorthand, or a path relative to an unstated directory.
+
+**When to write it:**
+- **At creation** — list the Input documents already known from the plan; with none known,
+  write `- (none yet)` and replace it with the first real entry.
+- **During** — the moment the work reads a document as a basis or creates / changes one, add
+  its bullet to `## Docs` (at the end of that section, not at the end of the page). A Work-log
+  line that mentions a document also names its location.
+- **At finish** — before Stage 1's PR and again before `Done`, reconcile the list with what
+  actually changed: `git -C <worktree> diff --name-only origin/<base>...HEAD`, then add an
+  Output bullet for every changed document file (`*.md`, `*.mdx`, `docs/**`, `*.pdf`, …)
+  missing from the list.
+- An older task page without `## Docs` → add the section right before `## Work log` the
+  first time the task is touched.
+
+Mechanics (`## Docs` sits mid-page, so a plain append would land in the Work log):
+- **Hosted MCP** — `notion-update-page` inserting after the last `## Docs` bullet; read the
+  tool's schema for the exact position / selection shape, don't guess.
+- **REST / local MCP** — `GET /blocks/{page_id}/children`, find the last block before the
+  `## Work log` heading, then `PATCH /blocks/{page_id}/children` with
+  `"after": "<that block id>"` and the `bulleted_list_item`.
+
 ## Mandatory Git branch at Notion task creation
 
 Every Notion task created by this skill must immediately receive its own Git branch. There
@@ -317,13 +366,15 @@ fall back to merging locally.
 1. Gather the day's intended tasks from the user (ask briefly if the list is vague). Keep
    them **coarse** (see Task granularity) — if the user lists many micro-items, propose
    merging them into a few ~30-min+ tasks before creating.
-2. For **each**, capture a one-line **Goal/scope** and resolve its repository/base branch per
-   **Mandatory Git branch at Notion task creation**. Ask if either is ambiguous.
+2. For **each**, capture a one-line **Goal/scope**, the Input documents already known (see
+   **Document locations**), and resolve its repository/base branch per
+   **Mandatory Git branch at Notion task creation**. Ask if the goal or repository is ambiguous.
 3. Batch-create them with `notion-create-pages`, parent
    `{ type: "data_source_id", data_source_id: "3f2616ff-95e7-837b-8444-074b10e56064" }`,
    each with: `Task name`, `Status: "Not Started"`, `Project` (resolved per "Which project"), `Completed On` = today
    (date only), `Priority` if the user implies one, dev `Tags` when clearly applicable. Put the Goal/scope
-   in the page `content` under a `## Goal` heading, and add an empty `## Work log` heading.
+   in the page `content` under a `## Goal` heading, the known documents under a `## Docs`
+   heading (per **Document locations**), and add an empty `## Work log` heading.
 4. Immediately create and verify one dedicated branch per returned Notion page (per
    **Mandatory Git branch at Notion task creation**), then write the branch/repository to
    the page Work log and local day index. Handle any failure as `Blocked`; never leave it
@@ -347,7 +398,8 @@ fall back to merging locally.
 
 **During:** append progress notes to the task's `## Work log` as bullets (what was done,
 decisions, blockers, links). Each entry should make it obvious which task it belongs to when
-several are open. Keep the system of record in Notion; keep the day index in sync for status.
+several are open. Every document read as a basis or created / changed also goes into
+`## Docs` with its location, per **Document locations**. Keep the system of record in Notion; keep the day index in sync for status.
 Three kinds of mid-task events are worth an **announcement** (optional — see "Announcements"),
 right after the Work-log line is written:
 
@@ -368,7 +420,8 @@ stay silent.
 
 **Finish:** end = the **current system clock** (read it; see Time rules — `Duration` is real
 elapsed and the calendar range uses the same real end, with no display floor; read the `Completed On` start /
-Work-log Start back via `notion-fetch` if not in context) → append
+Work-log Start back via `notion-fetch` if not in context) → reconcile `## Docs` with the
+documents actually changed (**Document locations**, "At finish") → append
 `- **End** <ts> — <1–3 line summary of what was done>` and `- **Duration** <Xh Ym>` to the Work
 log → set `Completed On` as a **range [start, end]** →
 `update_properties`
@@ -464,7 +517,7 @@ page without its verified branch is incomplete. Call `notion-create-pages` with 
     "Tags": "[\"开发\",\"Code\"]",
     "Project": "[\"https://app.notion.com/p/33b616ff95e780fbbe8dcfa7273e3c86\"]"
   },
-  "content": "## Goal\nBackoff + auto-resume for the live SSE stream.\n\n## Work log\n"
+  "content": "## Goal\nBackoff + auto-resume for the live SSE stream.\n\n## Docs\n- **Input** /Users/garry/Projects/peppy/mmwave-dashboard/docs/sse-protocol.md — stream events and reconnect contract\n\n## Work log\n"
 }
 ```
 Batch multiple via the `pages` array (≤100).
@@ -473,6 +526,8 @@ Batch multiple via the `pages` array (≤100).
 - Properties (status/priority/due/completed): `notion-update-page` `command: "update_properties"`.
 - Append a log line: `notion-update-page` `command: "insert_content"`, `position: {"type":"end"}`,
   `content: "- **Start** 2026-07-14 09:12\n"`.
+- Add a document to `## Docs`: insert after the section's last bullet, not at the page end —
+  see **Document locations**, "Mechanics".
 
 ### Find a task the user names (to get `page_id`/url)
 `notion-search` scoped to the data source (see below). If several match, list and ask before
