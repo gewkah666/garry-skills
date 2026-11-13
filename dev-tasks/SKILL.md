@@ -422,8 +422,9 @@ Notion MCP tools.
    `phantom_notify level=L1 kind=dev message="任务 <task title> 等你确认：<问题>"`.
 3. **Watch.** Start `python3 <skill-dir>/scripts/notion_confirm.py wait <page>` **in the
    background** (Claude Code: Bash with `run_in_background`; the session is re-invoked when it
-   exits). It polls every 60 s (`--interval`), exits when Status leaves `Pending for Confirm`,
-   and prints the answer as JSON: `status`, `ask.chosen` (ticked option labels),
+   exits). It polls every 60 s (`--interval`) and exits when Status leaves `Pending for Confirm`;
+   a network drop or the machine sleeping does not end it (it logs the failure to stderr and
+   keeps polling). On exit it prints the answer as JSON: `status`, `ask.chosen` (ticked option labels),
    `ask.comment`, `ask.options`, `ask.previous_status`. Meanwhile keep working on whatever does
    not depend on the answer. A session that cannot keep a background process (Hermes) runs
    `notion_confirm.py read <page>` from a Hermes cron every few minutes instead and resumes when

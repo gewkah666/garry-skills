@@ -10,6 +10,7 @@
 The token comes from $NOTION_TOKEN or ~/.hermes/notion-relay.json and is never printed.
 """
 import argparse
+import http.client
 import json
 import os
 import re
@@ -25,6 +26,11 @@ PENDING = "Pending for Confirm"
 ASK_TAG = "待确认"
 DONE_TAG = "确认"
 NOTE_TAG = "意见"
+TRANSIENT = (429, 500, 502, 503, 504)
+
+
+class Unreachable(Exception):
+    """Notion did not answer after the retries: network down, TLS cut, or 429/5xx."""
 
 
 def token():
@@ -53,15 +59,17 @@ def call(method, path, body=None, tolerate=()):
         except urllib.error.HTTPError as e:
             if e.code in tolerate:
                 return None
-            if e.code in (429, 502, 503, 504) and attempt < 4:
+            if e.code in TRANSIENT and attempt < 4:
                 time.sleep(int(e.headers.get("Retry-After") or 2 ** attempt))
                 continue
+            if e.code in TRANSIENT:
+                raise Unreachable(f"Notion {method} {path} -> {e.code}")
             sys.exit(f"Notion {method} {path} -> {e.code}: {e.read().decode()[:300]}")
-        except urllib.error.URLError as e:
+        except (OSError, http.client.HTTPException) as e:  # DNS, refused, TLS EOF, timeout, reset
             if attempt < 4:
                 time.sleep(2 ** attempt)
                 continue
-            sys.exit(f"Notion {method} {path} unreachable: {e.reason}")
+            raise Unreachable(f"Notion {method} {path} unreachable: {getattr(e, 'reason', e)}")
 
 
 def page_id(ref):
@@ -198,12 +206,18 @@ def cmd_ask(a):
 def cmd_wait(a):
     pid = page_id(a.page)
     deadline = time.time() + a.timeout_hours * 3600
-    while status(pid) == PENDING:
+    while True:
+        try:
+            if status(pid) != PENDING:
+                print(json.dumps(read(pid), ensure_ascii=False, indent=2))
+                return
+        except Unreachable as e:
+            # a network drop or the machine waking from sleep: keep polling until the deadline
+            print(f"{now()} {e}; still waiting", file=sys.stderr, flush=True)
         if time.time() > deadline:
             print(json.dumps({"status": PENDING, "timeout": True}, ensure_ascii=False))
             sys.exit(3)
         time.sleep(a.interval)
-    print(json.dumps(read(pid), ensure_ascii=False, indent=2))
 
 
 def cmd_read(a):
@@ -258,7 +272,10 @@ def main():
     a = p.parse_args()
     if a.cmd == "ask" and len(a.option) < 2:
         p.error("ask needs at least two --option")
-    a.fn(a)
+    try:
+        a.fn(a)
+    except Unreachable as e:
+        sys.exit(str(e))
 
 
 if __name__ == "__main__":
