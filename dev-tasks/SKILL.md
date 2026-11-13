@@ -13,7 +13,9 @@ description: >
   requests — task branch → dev for dev-environment testing, the same task branch → staging,
   then staging → main; dev is never merged into staging (never a local merge), verifying in
   the dev environment before staging and watching each post-merge CI; and remove a task's dedicated Git worktree
-  after its Review is explicitly approved. Triggered by /dev-tasks or any add / list / start /
+  after its Review is explicitly approved. Decisions the work waits on are asked on the task
+  page (background + options + a comment item, Status→Pending for Confirm), and the work
+  resumes once the user sets Confirmed / Commented in Notion. Triggered by /dev-tasks or any add / list / start /
   finish / log / review / "plan my day" / "what am I working on" request. Optional
   announcements via `phantom_notify` (see the "Announcements" section).
 ---
@@ -33,6 +35,10 @@ This skill is a **workflow**, not just CRUD. The four scenarios it serves:
    task's goal and ask the user whether to create a new task for the new thread.
 4. **Concurrency** — several tasks may be In Progress at the same time; always know which
    task any action or log belongs to.
+
+Whenever a task's work has to wait for the user's decision, the question goes onto that
+task's Notion page and the work resumes from the user's answer there — see **Confirmation in
+Notion**.
 
 ## Notion access — pick the path that exists in this session
 
@@ -94,7 +100,11 @@ values are **JSON-encoded strings** (e.g. `"[\"…\"]"`).
 
 - `Task name` — **title** (string). Required on create.
 - `Status` — `Backlog`, `Not Started`, `Planning`, `Approved`, `In Progress`, `Testing`,
-  `Review`, `Blocked`, `Rejected`, `Done`, `Archived`.
+  `Review`, `Blocked`, `Rejected`, `Done`, `Archived`, plus the confirmation trio (added
+  2026-11-13): `Pending for Confirm` (the agent is waiting for the user's decision on the page),
+  `Confirmed` (the user ticked an option), `Commented` (the user wrote a comment instead). The
+  agent sets only `Pending for Confirm`; the user sets the other two; see **Confirmation in
+  Notion**.
 - `Priority` — use `Low` / `Medium` / `High` (ignore the legacy `中`/`高` dupes).
 - `Completed On` — **the only time field that matters** (the user's Notion calendar sorts by
   it). It can be a **point** or a **range**: `date:Completed On:start`, `date:Completed On:end`
@@ -314,7 +324,9 @@ user what was verified and what is left for them to look at. A failure here goes
 the task branch → Stage 1 again (new PR to `dev`); never patch `dev` directly.
 
 **Stage 2 → `staging` needs the user's explicit confirmation** that dev verification passed
-(“dev 验证通过” / “Review 通过” / “验收通过” / “LGTM”). Then:
+(“dev 验证通过” / “Review 通过” / “验收通过” / “LGTM”). Ask it through **Confirmation in
+Notion** — options such as "通过，推进到 staging 和 main" / "不通过" — a `Confirmed` on the
+passing option is that confirmation. Then:
 1. **Check what the PR carries:** `git log --oneline origin/staging..<branch>` must list only
    this task's commits. Anything else (commits from `dev`, another task) → stop and tell the
    user; never PR it into `staging`.
@@ -360,6 +372,88 @@ If any PR cannot be opened or merged (no remote, no
 permission, a required review the user must do themselves), keep the task where it is
 (`Testing` / `Review`), append the exact blocker to the Work log, and tell the user — never
 fall back to merging locally.
+
+## Confirmation in Notion — `Pending for Confirm`
+
+When the work on an existing task needs the user's decision, ask it **on that task's Notion
+page**, set the task to `Pending for Confirm`, watch the status, and continue from what the
+user chose there (user rule, 2026-11-13). The user may answer **either on Notion** (the board,
+the page, the phone) **or directly in the chat** (user, 2026-11-13) — both count the same; act
+on whichever arrives first.
+
+**What goes through it:** any point where the task's work stops for the user — a design or
+architecture choice, an open question, a scope / drift question (Scenario 3), "dev verification
+passed → staging" (Stage 2), pushing or merging documents, bulk or destructive changes,
+re-planning around a missing dependency. Questions **before** a task page exists (which
+project or repository at planning time) stay in chat.
+
+**One decision per confirmation, one open confirmation per task.** Ask the next question only
+after the current one is answered; the script refuses a second open one. Several tasks may wait
+at the same time, each with its own watcher.
+
+The script `scripts/notion_confirm.py` (in this skill's directory) does the Notion writes and the
+watching through the REST API with the token from `$NOTION_TOKEN` or
+`~/.hermes/notion-relay.json` (never printed). It works in every session, with or without
+Notion MCP tools.
+
+1. **Ask.**
+   ```
+   python3 <skill-dir>/scripts/notion_confirm.py ask <page-url-or-id> \
+     --question "<一句话问题>" \
+     --background "<为什么要定、已知事实、约束；不看聊天也能读懂>" \
+     --option "A（推荐）" "<选了会怎样：做什么、影响、代价>" \
+     --option "B" "<…>"
+   ```
+   It appends this to the end of the page (the Work log) and sets Status → `Pending for Confirm`:
+   ```
+   • 待确认 2026-11-13 17:40 — <问题>（原状态 In Progress）
+       • 背景：<…>
+       ☐ A（推荐） <…>
+       ☐ B <…>
+       ☐ 意见：
+   ```
+   Content rules: 2–4 options, the recommended one first and marked `（推荐）`; each option
+   states what will be done and its trade-off; the background stands on its own. The `意见`
+   item is always added — the user writes on that line, in lines indented under it, or as a
+   Notion comment on it.
+2. **Say it in the chat too.** Post the same question with its options (labels and a short
+   line each) and the page link, so the user can answer right there; set the day-index row to
+   `Pending for Confirm`. Optional announcement:
+   `phantom_notify level=L1 kind=dev message="任务 <task title> 等你确认：<问题>"`.
+3. **Watch.** Start `python3 <skill-dir>/scripts/notion_confirm.py wait <page>` **in the
+   background** (Claude Code: Bash with `run_in_background`; the session is re-invoked when it
+   exits). It polls every 60 s (`--interval`), exits when Status leaves `Pending for Confirm`,
+   and prints the answer as JSON: `status`, `ask.chosen` (ticked option labels),
+   `ask.comment`, `ask.options`, `ask.previous_status`. Meanwhile keep working on whatever does
+   not depend on the answer. A session that cannot keep a background process (Hermes) runs
+   `notion_confirm.py read <page>` from a Hermes cron every few minutes instead and resumes when
+   the status has changed. After 24 h without an answer (`--timeout-hours`) `wait` exits with
+   code 3: start it again.
+4. **Act on the new status.**
+   - `Confirmed` with exactly one option ticked → do that option; text in `意见`, if any, is an
+     extra instruction to follow alongside it.
+   - `Commented` → read `意见`. If it settles the choice, do that. If it asks a question,
+     changes the options or adds a new one, answer it in a Work-log line and `ask` again with
+     the revised question — the earlier block stays as history.
+   - `Confirmed` with no option or several ticked, or `Commented` with an empty `意见` →
+     don't guess: append a Work-log line saying what is unclear, set Status back to
+     `Pending for Confirm`, and watch again.
+   - Any other status (`Blocked`, `Rejected`, `Not Started`, `Done`, …) → the user moved the
+     task; stop watching and follow that status, never overwrite it.
+5. **Record and resume.**
+   ```
+   python3 <skill-dir>/scripts/notion_confirm.py resolve <page> --summary "选 A：<…>；意见：<…>"
+   ```
+   appends `• 确认 <ts> — <summary>` and restores the status the task had before the ask (from
+   `原状态` in the block; override with `--status`). Update the day index, then continue.
+   `Completed On` is untouched throughout — waiting time is part of the task's real time.
+
+**When the user answers in the chat**, that is the answer — don't ask them to repeat it on
+Notion. Stop the background watcher (Claude Code: `TaskStop` on its task), then run
+`resolve --check <label> --summary "<…>（会话中确认）"` (leave out `--check` for a comment-only
+answer; put the comment in `--summary`) so the page shows the ticked option and the answer, and
+continue. If the other channel later says something different, the later answer wins: tell
+the user, follow it, and add a `确认` line saying which answer replaced which.
 
 ## Scenario 1 — Morning planning ("plan my day" / a list of todos)
 
@@ -473,10 +567,13 @@ For a task with no dedicated worktree, log that cleanup was not applicable and p
 While one or more tasks are In Progress, continuously sanity-check the work against each
 active task's **Goal/scope**. When a substantial new thread appears that isn't serving any
 active task's goal (e.g. the user starts fixing an unrelated bug, or scope balloons well past
-the stated goal), **pause and ask**, concretely:
+the stated goal), **pause and ask** on the active task's page (**Confirmation in Notion**),
+concretely:
 
 > "This looks outside **'<active task>'** (goal: <goal>). Want me to open a new task for
 > *<the new thing>* — and should I pause/keep the current one running?"
+
+with options such as "开新任务，当前任务继续" / "开新任务，当前任务暂停" / "算在当前任务内".
 
 → **(Optional) Announcement** — if enabled, `phantom_notify level=L1 kind=dev message="任务 <active task> 似乎跑偏了，目标是 <goal>，需要开新任务吗"`.
 
@@ -563,6 +660,8 @@ mutating. (Local day index is usually faster — check it first.)
 - Task names: short, imperative. Detail goes in the page body, not the title.
 - Just-do-it for add and single-task updates; **confirm first** for bulk/destructive changes
   (archiving, completing several at once). Always report the task's clickable Notion URL.
+- A decision the task waits on is asked on its page through **Confirmation in Notion**, one at
+  a time.
 - Keep the Notion page and the local day index consistent; Notion wins if they disagree.
 - Code moves local → `dev` (test only) and, separately, task branch → `staging` → `main`, each
   step through a **pull request** (never `dev` → `staging`), never a
@@ -598,7 +697,7 @@ still completes and nothing is retried.
 
 Announceable events (see the scenarios): plan created, task started, task finished (研究
 完成 for research tasks), any other status transition, problem/blocker hit, phase
-completion, key finding/discovery, and drift detection.
+completion, key finding/discovery, drift detection, and a confirmation waiting on Notion.
 
 ---
 
