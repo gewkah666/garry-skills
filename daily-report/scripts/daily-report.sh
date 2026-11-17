@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# 每日科技/游戏日报 - 抓取真实新闻 + LLM 分类总结 + Notion 写入
+# 每日科技/游戏日报 - 抓取真实新闻 + LLM 分类总结 + Notion 写入 + QQ 简报推送
 # 不用 agent,直接 API 调用 + Python 抓取
+# moss profile (WSL/Linux) 部署版:兼容 GNU date、NOTION_API_KEY、GLM 回退、OneBot QQ 推送
 
 set -e
-YESTERDAY=$(date -v-1d '+%Y-%m-%d')
-PRETTY=$(date -v-1d '+%Y年%-m月%-d日')
+# GNU (Linux/WSL) 优先,BSD (macOS) 回退
+YESTERDAY=$(date -d yesterday '+%Y-%m-%d' 2>/dev/null || date -v-1d '+%Y-%m-%d')
+PRETTY=$(date -d yesterday '+%Y年%-m月%-d日' 2>/dev/null || date -v-1d '+%Y年%-m月%-d日')
 LOG_DIR="$HOME/.cache/anime-tracker"
 mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/daily-report.log"
 echo "[$(date '+%F %T')] ▶ Starting daily report for $YESTERDAY" >> "$LOG"
 
-# 加载 hermes 环境(包含 MINIMAX_CN_API_KEY + NOTION_TOKEN)
-for envfile in "$HOME/.hermes/.env" "$HOME/.hermes/trip-env.sh"; do
+# 加载 hermes 环境(默认 profile + moss profile)
+for envfile in "$HOME/.hermes/.env" "$HOME/.hermes/profiles/moss/.env" "$HOME/.hermes/trip-env.sh"; do
     if [ -f "$envfile" ]; then
         set -a
         source "$envfile"
@@ -19,24 +21,37 @@ for envfile in "$HOME/.hermes/.env" "$HOME/.hermes/trip-env.sh"; do
     fi
 done
 
-# 代理免疫：系统代理端口不可达时清空代理变量（避免 Connection refused）
-source "$HOME/.hermes/scripts/proxy_guard.sh"
+# 代理免疫：配置了代理但端口不通时清空，避免 Connection refused / 直连被墙卡死
+if [ -n "${https_proxy:-}${HTTPS_PROXY:-}" ]; then
+    _p="${https_proxy:-${HTTPS_PROXY:-}}"
+    _hp="${_p#*://}"; _h="${_hp%%:*}"; _pt="${_hp##*:}"
+    if ! timeout 5 bash -c "</dev/tcp/$_h/$_pt" 2>/dev/null; then
+        unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
+        echo "[$(date '+%F %T')] ⚠️ proxy ${_p} unreachable, cleared proxy vars" >> "$LOG"
+    fi
+fi
+
+# Notion 凭据兼容:优先 NOTION_TOKEN,回退 NOTION_API_KEY
+NOTION_TOKEN="${NOTION_TOKEN:-${NOTION_API_KEY:-}}"
 
 if [ -z "$NOTION_TOKEN" ]; then
-    echo "[$(date '+%F %T')] ❌ Missing NOTION_TOKEN" >> "$LOG"
+    echo "[$(date '+%F %T')] ❌ Missing NOTION_TOKEN / NOTION_API_KEY" >> "$LOG"
     exit 1
 fi
-if [ -z "$DEEPSEEK_API_KEY" ] && [ -z "$MINIMAX_CN_API_KEY" ]; then
-    echo "[$(date '+%F %T')] ❌ Missing DEEPSEEK_API_KEY / MINIMAX_CN_API_KEY" >> "$LOG"
+if [ -z "$DEEPSEEK_API_KEY" ] && [ -z "$MINIMAX_CN_API_KEY" ] && [ -z "$GLM_API_KEY" ]; then
+    echo "[$(date '+%F %T')] ❌ Missing DEEPSEEK_API_KEY / MINIMAX_CN_API_KEY / GLM_API_KEY" >> "$LOG"
     exit 1
 fi
 
 # 全部逻辑在 Python 内,避免 shell quoting 问题
-YESTERDAY="$YESTERDAY" PRETTY="$PRETTY" LOG_FILE="$LOG" python3 << 'PYEOF'
+YESTERDAY="$YESTERDAY" PRETTY="$PRETTY" LOG_FILE="$LOG" LOG_DIR="$LOG_DIR" \
+NOTION_TOKEN="$NOTION_TOKEN" \
+python3 << 'PYEOF'
 import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 import datetime
@@ -44,16 +59,18 @@ import datetime
 YESTERDAY = os.environ["YESTERDAY"]
 PRETTY = os.environ["PRETTY"]
 LOG_FILE = os.environ["LOG_FILE"]
+LOG_DIR = os.environ["LOG_DIR"]
 NOTION_TOKEN = os.environ["NOTION_TOKEN"]
 DB_ID = "747e9f3b-0bbf-4f03-b678-7fc62a093790"
 
-# LLM 提供方: DeepSeek 优先 (OpenAI 兼容), MiniMax 回退 (Anthropic 兼容)
+# LLM 提供方链: DeepSeek (OpenAI 兼容, thinking 关闭) → MiniMax (Anthropic 兼容) → GLM (OpenAI 兼容)
 USE_DEEPSEEK = bool(os.environ.get("DEEPSEEK_API_KEY"))
-API_KEY = os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("MINIMAX_CN_API_KEY")
-MODEL_NAME = "deepseek-v4-flash" if USE_DEEPSEEK else "MiniMax-M3"
+USE_MINIMAX = bool(os.environ.get("MINIMAX_CN_API_KEY"))
+USE_GLM = bool(os.environ.get("GLM_API_KEY"))
 
-# 强制直连：忽略任何继承的代理环境变量（cron 环境可能携带死代理 → Connection refused）
-urllib.request.install_opener(urllib.request.build_opener(urllib.request.ProxyHandler({})))
+# 网络策略：跟随环境代理（WSL/CN 网络必须走 127.0.0.1:7900 才能出外网；
+# urllib 默认经由环境代理 + no_proxy 豁免本地 OneBot 调用）。
+# 注意：不可 install_opener(ProxyHandler({})) 强制直连 —— 本机直连外网 TLS 握手全部超时。
 
 
 def log(msg):
@@ -62,7 +79,8 @@ def log(msg):
     print(msg)
 
 
-log(f"   LLM 提供方: {'DeepSeek (' + MODEL_NAME + ')' if USE_DEEPSEEK else 'MiniMax (' + MODEL_NAME + ')'}")
+_provider_label = ("DeepSeek" if USE_DEEPSEEK else "MiniMax" if USE_MINIMAX else "GLM")
+log(f"   LLM 提供方优先级: DeepSeek={USE_DEEPSEEK} MiniMax={USE_MINIMAX} GLM={USE_GLM} (首选 {_provider_label})")
 
 
 def fetch_hn_top(limit=20):
@@ -205,7 +223,8 @@ PROMPT = f"""生成 {PRETTY} 的两条日报(每条 5 条要点)。
 {{"tech": [{{"headline": "...", "source": "...", "why": "...", "url": "https://..."}}, ...],
   "gaming": [{{"headline": "...", "source": "...", "why": "...", "url": "https://..."}}, ...]}}"""
 
-def build_request(use_deepseek):
+
+def build_request(use_deepseek, use_minimax):
     if use_deepseek:
         # deepseek-v4-flash 是推理模型。2026-09-03/04 两晚都因为思考把 12000 token 预算
         # 用光、content 为空而失败 —— 日报是格式化提取，不需要思考，关掉。
@@ -221,47 +240,68 @@ def build_request(use_deepseek):
             "https://api.deepseek.com/v1/chat/completions", data=payload, method="POST",
             headers={"Authorization": f"Bearer {os.environ['DEEPSEEK_API_KEY']}", "Content-Type": "application/json"},
         )
+    if use_minimax:
+        payload = json.dumps({
+            "model": "MiniMax-M3",
+            "max_tokens": 4000,
+            "messages": [{"role": "user", "content": PROMPT}],
+        }).encode()
+        return urllib.request.Request(
+            "https://api.minimaxi.com/anthropic/v1/messages", data=payload, method="POST",
+            headers={"x-api-key": os.environ["MINIMAX_CN_API_KEY"], "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
+        )
+    # GLM (bigmodel/zai, OpenAI 兼容)
+    base = os.environ.get("GLM_BASE_URL", "https://open.bigmodel.cn/api/coding/paas/v4").rstrip("/")
     payload = json.dumps({
-        "model": "MiniMax-M3",
+        "model": "glm-5.3-flash",
         "max_tokens": 4000,
+        "temperature": 0.7,
         "messages": [{"role": "user", "content": PROMPT}],
     }).encode()
     return urllib.request.Request(
-        "https://api.minimaxi.com/anthropic/v1/messages", data=payload, method="POST",
-        headers={"x-api-key": os.environ["MINIMAX_CN_API_KEY"], "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
+        base + "/chat/completions", data=payload, method="POST",
+        headers={"Authorization": f"Bearer {os.environ['GLM_API_KEY']}", "Content-Type": "application/json"},
     )
 
 
-def call(use_deepseek):
-    req = build_request(use_deepseek)
-    with urllib.request.urlopen(req, timeout=120) as resp:
+def call(use_deepseek, use_minimax):
+    req = build_request(use_deepseek, use_minimax)
+    with urllib.request.urlopen(req, timeout=180) as resp:
         raw = resp.read().decode()
-    with open(f"/Users/garry/.cache/anime-tracker/daily-report-raw-{YESTERDAY}.json", 'w') as f:
+    with open(os.path.join(LOG_DIR, f"daily-report-raw-{YESTERDAY}.json"), 'w') as f:
         f.write(raw)
-    log(f"   API response {len(raw)} chars ({'deepseek' if use_deepseek else 'minimax'})")
+    provider = 'deepseek' if use_deepseek else 'minimax' if use_minimax else 'glm'
+    log(f"   API response {len(raw)} chars ({provider})")
     data = json.loads(raw)
     if data.get("error"):
         raise RuntimeError(str(data["error"])[:200])
-    if use_deepseek:
+    if use_minimax:
+        text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+    else:
         choice = (data.get("choices") or [{}])[0]
         text = choice.get("message", {}).get("content", "") or ""
         if not text.strip():
             raise RuntimeError("empty content (finish_reason=%s)" % choice.get("finish_reason"))
-        return text
-    text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
     if not text.strip():
         raise RuntimeError("empty content")
     return text
 
 
 content = ""
-attempts = ([True] if USE_DEEPSEEK else []) + ([False] if os.environ.get("MINIMAX_CN_API_KEY") else [])
-for use_deepseek in attempts:
+attempts = []
+if USE_DEEPSEEK:
+    attempts.append((True, False))
+if USE_MINIMAX:
+    attempts.append((False, True))
+if USE_GLM:
+    attempts.append((False, False))
+for use_deepseek, use_minimax in attempts:
     try:
-        content = call(use_deepseek)
+        content = call(use_deepseek, use_minimax)
         break
     except Exception as e:
-        log(f"   ⚠️ {'deepseek' if use_deepseek else 'minimax'} failed: {e}")
+        provider = 'deepseek' if use_deepseek else 'minimax' if use_minimax else 'glm'
+        log(f"   ⚠️ {provider} failed: {e}")
 if not content:
     log("   ❌ every provider failed")
     sys.exit(1)
@@ -310,6 +350,7 @@ def parse_json_block(s):
         except:
             return None
     return None
+
 
 parsed = parse_json_block(content)
 if not parsed:
@@ -397,14 +438,80 @@ def write_page(name, items, tag):
         return f"ERROR: {e.code} {e.read().decode()[:200]}"
 
 
+tech_url = write_page(f"科技日报 — {PRETTY}", tech, "科技") if tech else None
 if tech:
-    url = write_page(f"科技日报 — {PRETTY}", tech, "科技")
-    log(f"   科技: {url}")
-    print(f"科技: {url}")
+    log(f"   科技: {tech_url}")
+    print(f"科技: {tech_url}")
+
+gaming_url = write_page(f"游戏日报 — {PRETTY}", gaming, "游戏") if gaming else None
 if gaming:
-    url = write_page(f"游戏日报 — {PRETTY}", gaming, "游戏")
-    log(f"   游戏: {url}")
-    print(f"游戏: {url}")
+    log(f"   游戏: {gaming_url}")
+    print(f"游戏: {gaming_url}")
+
+# 5. QQ 简报推送 (OneBot HTTP / NapCat,凭据在 moss-home.json,与家居观察共用通道但独立调用)
+def send_qq_digest():
+    settings_path = os.environ.get(
+        "MOSS_HOME_JSON",
+        os.path.expanduser("~/.hermes/profiles/moss/moss-home.json"),
+    )
+    try:
+        with open(settings_path) as f:
+            s = json.load(f)
+    except Exception as e:
+        log(f"   ⚠️ QQ 简报跳过: 无法读取 {settings_path}: {e}")
+        return False
+
+    lines = [f"[MOSS] 每日日报 · {PRETTY}"]
+    if tech:
+        lines.append("【科技】")
+        for i, item in enumerate(tech[:5]):
+            headline = item.get("headline", item.get("event", ""))[:80]
+            source = item.get("source", "")[:30]
+            lines.append(f"{i+1}. {headline}（{source}）")
+    if gaming:
+        lines.append("【游戏】")
+        for i, item in enumerate(gaming[:5]):
+            headline = item.get("headline", item.get("event", ""))[:80]
+            source = item.get("source", "")[:30]
+            lines.append(f"{i+1}. {headline}（{source}）")
+    if not tech and not gaming:
+        lines.append("今日候选不足,未生成条目(宁缺毋滥)。")
+    links = [u for u in (tech_url, gaming_url) if u and str(u).startswith("http")]
+    if links:
+        lines.append("📄 Notion:")
+        for u in links:
+            lines.append(u)
+    digest = "\n".join(lines)
+
+    body = json.dumps({
+        "user_id": int(s["admin_qq"]),
+        "message": [{"type": "text", "data": {"text": digest}}],
+    }, ensure_ascii=False).encode()
+    req = urllib.request.Request(
+        s["onebot_http"].rstrip("/") + "/send_private_msg",
+        data=body, method="POST",
+        headers={"Authorization": "Bearer " + s["onebot_token"], "Content-Type": "application/json"},
+    )
+    for attempt in range(1, 4):
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                result = json.loads(resp.read())
+            if result.get("status") == "ok" and result.get("retcode") == 0:
+                suffix = f" (第{attempt}次尝试)" if attempt > 1 else ""
+                log(f"   QQ 简报已送达 admin_qq ({len(digest)} chars){suffix}")
+                return True
+            log(f"   ⚠️ QQ 简报失败(第{attempt}次): {str(result)[:200]}")
+        except Exception as e:
+            log(f"   ⚠️ QQ 简报异常(第{attempt}次): {e}")
+        if attempt < 3:
+            time.sleep(15 * attempt)  # NapCat 瞬时 Errno 104 半死态通常几十秒内自愈
+    return False
+
+
+qq_ok = send_qq_digest()
+if not qq_ok:
+    log("   ❌ QQ 简报未送达")
+    sys.exit(1)
 
 log("✓ Daily report complete")
 PYEOF
