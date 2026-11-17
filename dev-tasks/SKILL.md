@@ -215,6 +215,8 @@ open it directly instead of searching. Two kinds, one bullet per document:
   document matters.
 - A file outside any repository → its absolute path.
 - An online document (Notion, Claude Docs, Google Docs, GitHub, a web page) → its full URL.
+- A **Phantom repo document** → its Notion page URL from `references/doc-map.md` (the repo's
+  docs are mirrored on Notion — see the next section), never a machine path.
 - Never a bare file name, `~`-relative shorthand, or a path relative to an unstated directory.
 
 **When to write it:**
@@ -236,6 +238,37 @@ Mechanics (`## Docs` sits mid-page, so a plain append would land in the Work log
 - **REST / local MCP** — `GET /blocks/{page_id}/children`, find the last block before the
   `## Work log` heading, then `PATCH /blocks/{page_id}/children` with
   `"after": "<that block id>"` and the `bulleted_list_item`.
+
+## Phantom repo docs live on Notion — reference them by page, not by path
+
+The Phantom repo's docs (`D:\Projects\phantom` on the Windows box, `~/Projects/phantom`
+elsewhere) are mirrored as Notion pages under the **Phantom** project page →「📄 文档」
+section (first sync 2026-11-17, 13 docs). The repo-path → page-URL mapping lives in this
+skill's `references/doc-map.md`; keep it updated on every sync.
+
+- **Referencing** — when a `## Docs` bullet or any reply names one of these documents, give
+  its **Notion URL** from `references/doc-map.md`, not the machine path. The location rules
+  above still apply to files without a Notion page (code, configs, branch-only outputs).
+- **Sync after changing a repo doc** — fetch the file, then rewrite to keep Notion free of
+  dead links: relative links `[label](relative.md)` → ``label（`relative.md`）`` and local
+  images `![alt](path)` → `（本机图片：`path`）`. Update the mapped page with targeted
+  `update_content` edits (never `replace_content` — it would drag subpage tags); for a new
+  doc, `create_pages` with parent = Phantom project page, `title` = repo-relative path,
+  icon 📄, batches ≤ 4 pages per call. The `<page>` block auto-appends to the parent page's
+  end. Verify every created/changed page's title by fetching it, then update
+  `references/doc-map.md`.
+- **Pitfalls** —
+  - fetch results are JSON: `JSON.parse(content[0].text)` before regexing for
+    `<page url="…">`; quotes are escaped, so a regex on the raw string silently matches
+    nothing.
+  - `gniverse` share links (`app.notion.com/p/gniverse/<id>`) must go to fetch as the full
+    URL; the id hand-formatted as a UUID is rejected (`validation_error`) — these ids are
+    UUID v8 and the API only accepts canonical `/p/` URLs or standard page ids.
+  - A title like `xxx.md` renders in fetched markdown as `[xxx.md](http://xxx.md)` —
+    Notion autolinks `.md` as a TLD. Not corruption; don't "fix" it.
+  - The Phantom project page body starts with its own architecture content (topology,
+  port tables) and already carries 4 older spec pages; locate edits by fetching the page,
+  never by memory.
 
 ## Mandatory Git branch at Notion task creation
 
