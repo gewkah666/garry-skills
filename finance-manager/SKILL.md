@@ -15,6 +15,16 @@ metadata:
 
 真相只有一份：Notion「💸 财务」的「账户」和「明细」两个库。`finance` plugin 维护 SQLite 镜像并提供七个工具；**你不直接碰 Notion，也不自己算余额**，一律走工具。设计和数据现状见 `DESIGN.md`。
 
+## 本机（WSL，moss profile）后端差异（2026-11-08 实测）
+
+- 本机没有 `finance_record` 等工具；`scripts/finance_cli.py`（`ops.record` 版）是退役 MacBook 原件，在这台机器必报 FileNotFoundError，别再试。
+- 实际后端：`~/.hermes/plugins/finance/finance_cli.py`（2026-11-03 重建版，读默认 ~/.hermes/.env 的 NOTION_API_KEY）。用法：payload 写入文件后 `python3 finance_cli.py < payload.json`，stdin 收 `{"items":[{amount(正数),io,account,date,category,subcategory,name,note}],"source":"截图"}`，恒 exit 0，stdout 是 `{ok,written,skipped_duplicates,errors,summary}`。
+- 查既往分类 / 找漏记直接读本地镜像 `~/.hermes-phantom/finance.db`（`transactions` 表）：用 python3 的 sqlite3 模块，本机没有 sqlite3 命令行。表列固定为 notion_id / date / amount / io / category / subcategory / name / note / account / account_id / source / fingerprint / created_at / synced_at——没有 merchant 列，查商户既往记录 LIKE `name`（name 含品牌与分店名），别凭直觉猜列名。
+- venv 路径 `/home/garry/.hermes/hermes-agent/venv` 不存在，直接 `python3`；Notion API 走 env 代理即可（urllib 默认读 http_proxy）。判重靠 Notion 回查「金额+名称精确 + 账户 + 时间±120s」，命中就进 `skipped_duplicates`，先读回原页确认再回复御主。
+- `finance_cli.py` **恒 exit 0，报错也是 exit 0**——shell `||` 回退永远不触发，成败只看 stdout JSON 的 `ok` 字段（2026-11-10 踩过）。
+- `items[].date` 只认 `YYYY-MM-DD` 或 `YYYY-MM-DD HH:MM`；ISO 带时区（`…T…+08:00`）报「日期看不懂」（2026-11-10 踩过）。
+- 网络降级期（晚间常见）：api.notion.com 直连与 env 代理**同时**间歇 SSL EOF / 超时，单路成功率可掉到 1/3；curl 短超时多次探测比 python 单发靠谱。复用 `scripts/notion_curl_runner.py`：urlopen 换 curl 传输层、直连/代理交替重试 12 次（connect-timeout 5 / max-time 60）。**请求体一律走临时文件 `@file`，禁用 `@-` 读 stdin**——2026-11-13 实证 stdin 管道偶发送达空体（查询过滤失效、建页报 "no parent"），文件传体未再失手。用法 `python3 notion_curl_runner.py < payload.json`。
+
 ## 工具一览
 
 | 工具 | 什么时候用 |
@@ -57,13 +67,13 @@ metadata:
 | 页面 | 怎么处理 |
 |---|---|
 | 支付宝 / 微信 **账单列表** | 每行一条，读 商户、金额、方向（−支出 / +收入）、时间、付款方式（决定账户，见 accounts.md）→ 一次 `finance_record` 多条，`source:截图`。「退款」是收入 / 退款报销。「转账」到自己卡是转账，给人是支出。 |
-| 支付宝 / 微信 **单笔详情** | 一条，备注里写「截图识别 · 付款方式 · 时间」。 |
+| 支付宝 / 微信 **单笔详情** | 一条，备注里写「截图识别 · <微信/支付宝/美团等 App> · 付款方式 · 时间」——卡名本身看不出走的哪个 App。微信「亲情卡消费」自动扣款：付款方式是御主的卡、持卡亲人消费 → 支出 家庭/亲友代付，name 写「亲情卡消费·<对方姓名>」。 |
 | 银行 App / 信用卡 App **交易明细** | 同列表页；账户就是这张卡。 |
 | **余额页 / 信用卡欠款页 / 总资产页** | 走 `finance_reconcile`（下面） |
 | 商家小票 / 付款成功页 | 一条；账户从「付款方式」看，看不到就问。 |
 | 美团 / 淘宝等 App 订单详情页 | 一条；付款方式常不可见——别按历史订单惯例猜账户，看不到就问一句（2026-10-20 美团单按浦发惯例记错，御主指正实走光大）。 |
 
-截图里的商户名做 name；分类按商户判断；同一张截图里已经在库里的（工具会去重）不用手动排。一次超过 15 条先回显前几条和合计，御主说「记」再写。
+截图里的商户名做 name；分类按商户判断，商户分类拿不准先查镜像库该商户的既往记录、沿用既定口径（二级按支付时刻定：午 → 午餐，晚 → 晚餐），镜像里没历史先网络搜索「品牌名 + 城市 / 商场」定业态（新消费品牌多能查到品类与客单价，直接可定分类，不必打扰御主），搜不到再问御主、把 categories.md 的可选项列 3 个以内；同一张截图里已经在库里的（工具会去重）不用手动排。一次超过 15 条先回显前几条和合计，御主说「记」再写。
 
 ## 对账（余额 / 欠款截图）
 
