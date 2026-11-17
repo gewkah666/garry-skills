@@ -106,6 +106,10 @@ def intensity(avg_hr, max_hr=190):
 
 ## 坑点
 
+- WSL/moss 环境：本文档里的 `~/.hermes/hermes-agent/venv/bin/python` 不存在，直接用带 requests 的 `python3` 跑 `scripts/ride_log.py`（NOTION_API_KEY 由 config.py 从 ~/.hermes/.env 读取；外网需走 127.0.0.1:7900 代理，requests 默认信任 env 代理变量，勿强制直连）。
+- 阅览世界库的「类型」「状态」是 **select** 而非 multi_select；脚本写入正常（日常/已记录），回读核验时按 select 取 `{"name": ...}`。
+- 智能体有视觉能力时无需 OCR 路径：直接读截图数值走 `log` 命令，比 tesseract 稳。
+
 - `--activity` 会经过 `resolve_activity()` 二次识别，非骑行运动（羽毛球等）直接传中文活动名即可；emoji/别名映射已覆盖羽毛球、乒乓、网球、篮球、足球。
 - 不传 `--distance` 时标题退化为 `emoji - 时长`。若历史页面标题被误写成「🚴 骑行」，用 Notion PATCH page API 改 title 属性（key 从 `scripts/config.py` 的 `Config.NOTION_API_KEY` 取）。
 - 心率曲线截图里的极值（如 144/93）可写进 `--note`。
