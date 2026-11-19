@@ -1,23 +1,20 @@
 ---
 name: dev-tasks
 description: >
-  Run the user's daily development-task workflow on their Notion "Tasks" database
-  via the Notion MCP server (no default project — resolve it from the repo / cwd / task
-  wording, see "Which project"). Use to: plan the day (create
-  today's tasks each morning and immediately create a matching Git branch for every
-  task); start a task (stamp start time, Status→In Progress);
-  log progress into the task's Notion page, including where every document the task reads or
-  changes lives (a `## Docs` section); finish a task (stamp end time + duration,
-  Status→Done); detect when work drifts off the task and offer to create a new one;
-  track several tasks running at once; verify locally, then promote the work through pull
-  requests — task branch → dev for dev-environment testing, the same task branch → staging,
-  then staging → main; dev is never merged into staging (never a local merge), verifying in
-  the dev environment before staging and watching each post-merge CI; and remove a task's dedicated Git worktree
-  after its Review is explicitly approved. Decisions the work waits on are asked on the task
-  page (background + options + a comment item, Status→Pending for Confirm), and the work
-  resumes once the user sets Confirmed / Commented in Notion. Triggered by /dev-tasks or any add / list / start /
-  finish / log / review / "plan my day" / "what am I working on" request. Optional
-  announcements via `phantom_notify` (see the "Announcements" section).
+  Run the user's daily dev-task workflow on the Notion "Tasks" database via
+  the Notion MCP server (no default project — resolve from repo / cwd /
+  wording). Use to: plan the day (create today's tasks each morning plus a
+  matching branch per task); start a task (stamp start time, Status→In
+  Progress); log progress + a `## Docs` map of every document read/changed
+  into the task's Notion page; finish (stamp end time + duration,
+  Status→Done); detect drift off a task and offer a new one; track several
+  tasks at once; verify locally, then promote via PRs — task branch → dev,
+  same branch → staging, then staging → main; dev never merges into staging;
+  and remove a task's worktree after its Review is approved. Blocked
+  decisions go on the task page (Status→Pending for Confirm) and resume once
+  Confirmed / Commented. Triggered by /dev-tasks or any add / list / start /
+  finish / log / review / "plan my day" / "what am I working on" request.
+  Optional announcements via `phantom_notify`.
 ---
 
 # Dev Tasks (Notion) — daily workflow
