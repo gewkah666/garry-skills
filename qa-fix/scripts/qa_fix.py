@@ -173,11 +173,11 @@ def qa_items(blocks):
     items, cur = [], None
     for b in body:
         if b["type"] == "heading_3":
-            title = plain(b).strip()
-            m = re.match(r"(QA-[\w.-]+)\s*(.*)", title)
-            cur = {"id": m.group(1) if m else title, "title": m.group(2) if m else title,
-                   "heading": b, "blocks": []}
-            items.append(cur)
+            # 只有 QA-NN 开头的三级标题是一条问题；别的三级标题（例如 QA 的补测说明）是备注，它下面的块不归任何一项。
+            m = re.match(r"(QA-[\w.-]+)\s*(.*)", plain(b).strip())
+            cur = {"id": m.group(1), "title": m.group(2), "heading": b, "blocks": []} if m else None
+            if cur:
+                items.append(cur)
         elif cur:
             cur["blocks"].append(b)
     for it in items:

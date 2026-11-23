@@ -37,6 +37,8 @@ description: >
 | `testing <页> [--text "…"] [--dry-run]` | 检查后 Status → Testing，并在 Work log 记「转 Testing」 |
 | `watch --state <文件> [--interval 秒] [--project 名]` | 后台轮询（默认 300 秒），出现新的待修 QA 项就打印并退出；见「监控」 |
 
+只有 `### QA-NN` 开头的三级标题才算一条问题；Test log 里别的三级标题（例如 QA 的补测说明）是备注，不算问题项，也不挡 `testing`，但要读一遍，看里面有没有新问题。
+
 QA 项的 `state` 有三种：
 - `open`：还没有修复记录。
 - `fixed`：修复记录是这一项的最后一块。
