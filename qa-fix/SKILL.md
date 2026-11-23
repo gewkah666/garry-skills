@@ -35,6 +35,7 @@ description: >
 | `record <页> <QA-ID> --cause --change --test --retest [--result 已修复\|不修改\|未复现]` | 在该 QA 项末尾插入一个「修复」callout |
 | `log <页> --label 标签 --text "…"` | 在 Work log 记一行，顺序跟随页面现有顺序（新的在上或新的在下） |
 | `testing <页> [--text "…"] [--dry-run]` | 检查后 Status → Testing，并在 Work log 记「转 Testing」 |
+| `watch --state <文件> [--interval 秒] [--project 名]` | 后台轮询（默认 300 秒），出现新的待修 QA 项就打印并退出；见「监控」 |
 
 QA 项的 `state` 有三种：
 - `open`：还没有修复记录。
@@ -43,6 +44,24 @@ QA 项的 `state` 有三种：
 
 `testing` 只在 Status 为 Needs Fix，且每一项都是 `fixed` 时才执行；其余情况会列出原因并以 exit 2 退出。
 Notion 的截图链接一小时后失效，需要时重新跑 `show`。
+
+## 监控
+
+用户要求盯着 Needs Fix 时，在会话里挂一个后台 `watch`：
+
+```
+python3 <skill-dir>/scripts/qa_fix.py watch --state ~/.claude/dev-tasks/qa-fix-watch.json
+```
+
+- Claude Code 用 Bash 的 `run_in_background` 启动。它一直轮询，直到出现状态文件里没有的待修项：
+  新的 `open` 项，或 QA 复验后变成 `reopened` 的项。这时它把这些项打印成 JSON 后退出，会话被唤醒。
+- 被唤醒后，按下面的流程处理这些项，然后**马上重新挂上**同一条命令，状态文件不变。
+  正在修的时候也要挂着，新到的项排在当前任务之后处理。
+- 状态文件不存在时，第一轮把当前所有待修项记为基线，不报警。适合开监控时这些项已经在修、
+  或已排进本轮的情况。想让当前的待修项也报一次，就先删掉状态文件。
+- 网络断开或 Notion 报错时，它在 stderr 记一行并继续轮询，不会退出。
+- 会话结束，监控就停了。不能常驻后台进程的环境（例如 Hermes），用定时任务定期跑 `list`，
+  拿结果和上次比较。
 
 ## 流程（一次处理一个任务）
 

@@ -7,6 +7,8 @@
   record   在某条 QA 项末尾插入一个「修复」记录块（已修复 / 不修改 / 未复现）
   log      Work log 记一行，按页面现有顺序插入（新的在上或新的在下）
   testing  所有 QA 项的最后一块都是修复记录时，Status → Testing，Work log 记「转 Testing」
+  watch    后台轮询；出现状态文件里没有的待修 QA 项（新的 open，或 QA 复验后 reopened）
+           就打印它们并退出。状态文件不存在时，先把当前的待修项记为基线，不报
 
 QA 项的状态：open（没有修复记录）、fixed（修复记录是这一项的最后一块）、
 reopened（修复记录之后 QA 又写了内容，读 after_fix）。
@@ -187,6 +189,7 @@ def qa_items(blocks):
         else:
             it["state"] = "reopened"
         it["last_record"] = recs[-1] if recs else None
+        it["records"] = len(recs)
         fields = {}
         first = next((b for b in it["blocks"] if b["type"] == "paragraph"), None)
         if first:
@@ -199,7 +202,7 @@ def qa_items(blocks):
 
 
 def item_summary(it):
-    return {"id": it["id"], "title": it["title"], "state": it["state"],
+    return {"id": it["id"], "title": it["title"], "state": it["state"], "records": it["records"],
             "priority": it["fields"].get("优先级"), "slice": it["fields"].get("切片")}
 
 
@@ -273,9 +276,9 @@ def task_row(p, blocks):
     }
 
 
-def cmd_list(a):
-    if a.page:
-        pages = [call("GET", f"/pages/{page_id(a.page)}")]
+def needs_fix_rows(project=None, page=None):
+    if page:
+        pages = [call("GET", f"/pages/{page_id(page)}")]
     else:
         pages, cursor = [], None
         while True:
@@ -291,14 +294,47 @@ def cmd_list(a):
     for p in pages:
         _titles[p["id"]] = "".join(
             x["plain_text"] for x in p["properties"]["Task name"]["title"])
-        if a.project:
+        if project:
             names = [page_title(r["id"]) for r in p["properties"]["Project"]["relation"]]
-            if not any(a.project.lower() in n.lower() for n in names):
+            if not any(project.lower() in n.lower() for n in names):
                 continue
         rows.append(task_row(p, children(p["id"])))
     order = {"High": 0, "Medium": 1, "Low": 2}
     rows.sort(key=lambda r: order.get(r["priority"], 3))
-    print(json.dumps(rows, ensure_ascii=False, indent=2))
+    return rows
+
+
+def cmd_list(a):
+    print(json.dumps(needs_fix_rows(a.project, a.page), ensure_ascii=False, indent=2))
+
+
+def cmd_watch(a):
+    path = os.path.abspath(a.state)
+    seen = set(json.load(open(path))) if os.path.exists(path) else None
+    while True:
+        try:
+            cur = {}
+            for r in needs_fix_rows(a.project):
+                for it in r["items"]:
+                    if it["state"] in ("open", "reopened"):
+                        cur[f"{r['page_id']}|{it['id']}|{it['records']}|{it['state']}"] = (r, it)
+            if seen is None:
+                seen = set(cur)
+                print(f"{now()} baseline {len(seen)} item(s) -> {path}", file=sys.stderr, flush=True)
+            new = [k for k in cur if k not in seen]
+            if new:
+                seen |= set(new)
+            with open(path, "w") as f:
+                json.dump(sorted(seen), f)
+            if new:
+                print(json.dumps([{"task": cur[k][0]["title"], "url": cur[k][0]["url"],
+                                   "qa": cur[k][1]["id"], "title": cur[k][1]["title"],
+                                   "state": cur[k][1]["state"], "claimed": cur[k][0]["claimed"]}
+                                  for k in new], ensure_ascii=False, indent=2), flush=True)
+                return
+        except SystemExit as e:  # call() gave up: network down or a Notion error; keep watching
+            print(f"{now()} {e}", file=sys.stderr, flush=True)
+        time.sleep(a.interval)
 
 
 def download(url, path):
@@ -417,6 +453,11 @@ def main():
     s.add_argument("--project")
     s.add_argument("--page")
     s.set_defaults(fn=cmd_list)
+    s = sub.add_parser("watch")
+    s.add_argument("--state", required=True, help="已报过的待修项记录（JSON）；删掉它会把当前所有待修项重新记为基线")
+    s.add_argument("--interval", type=int, default=300)
+    s.add_argument("--project")
+    s.set_defaults(fn=cmd_watch)
     s = sub.add_parser("show")
     s.add_argument("page")
     s.add_argument("--out", help="截图下载目录（Notion 文件链接一小时后失效，用时现取）")
