@@ -101,7 +101,8 @@ values are **JSON-encoded strings** (e.g. `"[\"…\"]"`).
   2026-11-13): `Pending for Confirm` (the agent is waiting for the user's decision on the page),
   `Confirmed` (the user ticked an option), `Commented` (the user wrote a comment instead). The
   agent sets only `Pending for Confirm`; the user sets the other two; see **Confirmation in
-  Notion**.
+  Notion**. `Needs Fix` (added 2026-11-23): QA found problems and wrote them under the page's
+  `## Test log`; the `qa-fix` skill fixes them and sets `Testing`, QA re-tests and sets `Done`.
 - `Priority` — use `Low` / `Medium` / `High` (ignore the legacy `中`/`高` dupes).
 - `Completed On` — **the only time field that matters** (the user's Notion calendar sorts by
   it). It can be a **point** or a **range**: `date:Completed On:start`, `date:Completed On:end`
@@ -434,7 +435,8 @@ Notion MCP tools.
      --option "A（推荐）" "<选了会怎样：做什么、影响、代价>" \
      --option "B" "<…>"
    ```
-   It appends this to the end of the page (the Work log) and sets Status → `Pending for Confirm`:
+   It appends this to the end of the Work log (before a following section such as `## Test log`,
+   else at the page end) and sets Status → `Pending for Confirm`:
    ```
    • 待确认 2026-11-13 17:40 — <问题>（原状态 In Progress）
        • 背景：<…>

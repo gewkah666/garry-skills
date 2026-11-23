@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Ask the user to confirm something on a Notion task page, wait, and record the answer.
 
-  ask      append a 待确认 block (背景, options, 意见) to the page end and set Status
+  ask      append a 待确认 block (背景, options, 意见) to the end of the Work log (the page
+           end unless another section such as ## Test log follows it) and set Status
            to "Pending for Confirm"
   wait     poll Status until it leaves "Pending for Confirm", then print the answer as JSON
   read     print the latest 待确认 block and the current Status as JSON, once
@@ -145,6 +146,18 @@ def todo(*rich):
     return {"type": "to_do", "to_do": {"rich_text": list(rich), "checked": False}}
 
 
+def worklog_end(pid):
+    """Where a new line goes: after the Work log's last block when another section (such as
+    ## Test log) follows it, so it never lands inside that section; else the page end."""
+    blocks = children(pid)
+    heads = [i for i, b in enumerate(blocks) if b["type"] in ("heading_1", "heading_2")]
+    for i in heads:
+        if plain(blocks[i]).strip().lower() == "work log":
+            nxt = [j for j in heads if j > i]
+            return {"after": blocks[nxt[0] - 1]["id"]} if nxt else {}
+    return {}
+
+
 def latest_ask(pid):
     asks = [b for b in children(pid) if b["type"] == "bulleted_list_item" and lead(b) == ASK_TAG]
     return asks[-1] if asks else None
@@ -195,7 +208,7 @@ def cmd_ask(a):
     kids = [bullet(text("背景：", True), text(a.background))]
     kids += [todo(text(label, True), text(" " + desc)) for label, desc in a.option]
     kids.append(todo(text(NOTE_TAG + "：", True)))
-    r = call("PATCH", f"/blocks/{pid}/children", {"children": [
+    r = call("PATCH", f"/blocks/{pid}/children", {**worklog_end(pid), "children": [
         bullet(text(ASK_TAG, True), text(f" {now()} — {a.question}（原状态 {prev}）"), kids=kids)
     ]})
     set_status(pid, PENDING)
@@ -239,7 +252,7 @@ def cmd_resolve(a):
     restore = a.status or ask["previous_status"]
     if not restore:
         sys.exit("previous status unknown; pass --status")
-    call("PATCH", f"/blocks/{pid}/children", {"children": [
+    call("PATCH", f"/blocks/{pid}/children", {**worklog_end(pid), "children": [
         bullet(text(DONE_TAG, True), text(f" {now()} — {a.summary}"))
     ]})
     set_status(pid, restore)

@@ -8,6 +8,7 @@
 |-------|------|------|
 | `dashboards` | 通用数据可视化（Notion 数据源 + Plotly + Hermes plugin 托管） | `dashboards/SKILL.md` |
 | `dev-tasks` | Notion 任务管理（早晨规划 / 开始 / 完成 / 漂移检测） | `dev-tasks/SKILL.md` |
+| `qa-fix` | 修复 Needs Fix 任务 Test log 里的 QA 问题：复现、回归用例、修复、PR 合入，写修复记录后转 Testing | `qa-fix/SKILL.md` · `scripts/qa_fix.py` |
 | `miloco-tts` | miloco 智能 TTS 路由（让小爱音箱/电视朗读） | `miloco-tts/SKILL.md` |
 | `mmx-cli` | MiniMax `mmx` CLI（文本/图像/视频/语音/音乐生成） | `mmx-cli/SKILL.md` |
 | `ride-notion` | 骑行/运动数据写入 Notion 阅览世界（手动或解析截图） | `ride-notion/SKILL.md` |
